@@ -1,6 +1,6 @@
--- Dessert War Enhanced Script - Professional Edition
--- Version: 2.0 - Complete ESP & Auto Aim System
--- Features: Advanced ESP, Smart Auto Aim, Run Speed, Minimizable GUI
+-- Dessert War Mobile Exclusive Script
+-- Version: 3.0 - Mobile Only Edition
+-- Features: Touch Controls, Mobile ESP, Mobile Auto Aim, Gesture Support
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -8,10 +8,18 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 local Camera = Workspace.CurrentCamera
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GuiService = game:GetService("GuiService")
+local VibrationService = game:GetService("VibrationService")
 
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
+
+-- Mobile Detection & Validation
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+if not isMobile then
+    warn("⚠️ This script is designed exclusively for mobile devices!")
+    return
+end
 
 -- Variables
 local espEnabled = false
@@ -19,20 +27,26 @@ local autoAimEnabled = false
 local runSpeedEnabled = false
 local espObjects = {}
 local currentTarget = nil
-local aimSmoothness = 0.15
-local maxAimDistance = 1000
-local maxESPDistance = 2000
+local aimSmoothness = 0.12
+local maxAimDistance = 800
+local maxESPDistance = 1500
 local originalWalkSpeed = 16
-local runSpeed = 100
+local runSpeed = 85
 local isMinimized = false
+local isFloatingMode = false
+
+-- Mobile Specific Variables
+local screenSize = Camera.ViewportSize
+local safeAreaInsets = GuiService:GetGuiInset()
+local touchStartPos = nil
+local lastTouchTime = 0
+local doubleTapThreshold = 0.3
 
 -- Connections
 local espUpdateConnection = nil
 local aimUpdateConnection = nil
 local speedConnection = nil
-
--- Mobile Detection
-local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local gestureConnection = nil
 
 -- Create GUI Elements
 local ScreenGui = Instance.new("ScreenGui")
@@ -41,9 +55,14 @@ local TopBar = Instance.new("Frame")
 local TitleLabel = Instance.new("TextLabel")
 local MinimizeButton = Instance.new("TextButton")
 local CloseButton = Instance.new("TextButton")
-local ContentFrame = Instance.new("Frame")
+local ContentFrame = Instance.new("ScrollingFrame")
 local MinimizedFrame = Instance.new("Frame")
 local RestoreButton = Instance.new("TextButton")
+
+-- Mobile Control Panel
+local MobileControlPanel = Instance.new("Frame")
+local QuickActionsFrame = Instance.new("Frame")
+local FloatingButton = Instance.new("TextButton")
 
 -- Control Buttons
 local ESPButton = Instance.new("TextButton")
@@ -51,322 +70,515 @@ local AimButton = Instance.new("TextButton")
 local SpeedButton = Instance.new("TextButton")
 local StatusLabel = Instance.new("TextLabel")
 
--- Setup ScreenGui
-ScreenGui.Name = "DessertWarEnhanced"
+-- Setup ScreenGui for Mobile
+ScreenGui.Name = "DessertWarMobile"
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.IgnoreGuiInset = true
 
--- Calculate optimal sizes
-local function getOptimalSize()
-    local screenSize = Camera.ViewportSize
-    if isMobile then
-        return {
-            width = math.min(screenSize.X * 0.85, 300),
-            height = 200,
-            buttonHeight = 40,
-            fontSize = 12
-        }
-    else
-        return {
-            width = 280,
-            height = 180,
-            buttonHeight = 35,
-            fontSize = 11
-        }
-    end
+-- Mobile-optimized sizes
+local function getMobileSizes()
+    local scale = math.min(screenSize.X / 800, screenSize.Y / 600)
+    return {
+        width = math.min(screenSize.X * 0.9, 320),
+        height = math.min(screenSize.Y * 0.7, 240),
+        buttonHeight = 45,
+        fontSize = 13,
+        iconSize = 20,
+        padding = 12,
+        cornerRadius = 15
+    }
 end
 
-local sizes = getOptimalSize()
+local sizes = getMobileSizes()
 
 -- Main Frame Setup
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
 MainFrame.BorderSizePixel = 0
-MainFrame.Position = UDim2.new(0, 30, 0, 120)
+MainFrame.Position = UDim2.new(0.5, -sizes.width/2, 0.5, -sizes.height/2)
 MainFrame.Size = UDim2.new(0, sizes.width, 0, sizes.height)
 MainFrame.Active = true
 MainFrame.ZIndex = 10
 
--- Gradient Background
+-- Enhanced Mobile Gradient
 local MainGradient = Instance.new("UIGradient")
 MainGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 45)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(25, 25, 40)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 25))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 25, 40)),
+    ColorSequenceKeypoint.new(0.3, Color3.fromRGB(20, 20, 35)),
+    ColorSequenceKeypoint.new(0.7, Color3.fromRGB(15, 15, 30)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 20))
 }
 MainGradient.Rotation = 135
 MainGradient.Parent = MainFrame
 
--- Shadow Effect
+-- Mobile Shadow
 local MainShadow = Instance.new("Frame")
 MainShadow.Name = "Shadow"
 MainShadow.Parent = ScreenGui
 MainShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-MainShadow.BackgroundTransparency = 0.7
+MainShadow.BackgroundTransparency = 0.6
 MainShadow.BorderSizePixel = 0
-MainShadow.Position = UDim2.new(0, 35, 0, 125)
+MainShadow.Position = UDim2.new(0.5, -sizes.width/2 + 4, 0.5, -sizes.height/2 + 4)
 MainShadow.Size = UDim2.new(0, sizes.width, 0, sizes.height)
 MainShadow.ZIndex = 5
 
 local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 15)
+MainCorner.CornerRadius = UDim.new(0, sizes.cornerRadius)
 MainCorner.Parent = MainFrame
 
 local ShadowCorner = Instance.new("UICorner")
-ShadowCorner.CornerRadius = UDim.new(0, 15)
+ShadowCorner.CornerRadius = UDim.new(0, sizes.cornerRadius)
 ShadowCorner.Parent = MainShadow
 
--- Enhanced Dragging System
-local function makeDraggable(frame, shadowFrame)
+-- Mobile Border with Glow Effect
+local MainBorder = Instance.new("UIStroke")
+MainBorder.Color = Color3.fromRGB(255, 150, 50)
+MainBorder.Thickness = 2
+MainBorder.Transparency = 0.3
+MainBorder.Parent = MainFrame
+
+-- Advanced Mobile Touch Dragging
+local function setupMobileDrag(frame, shadowFrame)
     local dragging = false
     local dragStart = nil
     local startPos = nil
     local shadowStartPos = nil
+    local dragThreshold = 10
+    local hasMoved = false
     
-    local function onInputBegan(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
+            hasMoved = false
             dragStart = input.Position
             startPos = frame.Position
             if shadowFrame then
                 shadowStartPos = shadowFrame.Position
             end
-        end
-    end
-    
-    local function onInputChanged(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            local newPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            frame.Position = newPos
             
-            if shadowFrame and shadowStartPos then
-                shadowFrame.Position = UDim2.new(shadowStartPos.X.Scale, shadowStartPos.X.Offset + delta.X + 5, shadowStartPos.Y.Scale, shadowStartPos.Y.Offset + delta.Y + 5)
+            -- Haptic feedback
+            pcall(function()
+                VibrationService:Vibrate(Enum.VibrationMotor.Small, 0.1)
+            end)
+        end
+    end)
+    
+    frame.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.Touch then
+            local delta = input.Position - dragStart
+            local distance = delta.Magnitude
+            
+            if distance > dragThreshold then
+                hasMoved = true
+                local newPos = UDim2.new(
+                    startPos.X.Scale, 
+                    math.clamp(startPos.X.Offset + delta.X, 0, screenSize.X - sizes.width),
+                    startPos.Y.Scale, 
+                    math.clamp(startPos.Y.Offset + delta.Y, safeAreaInsets.Y, screenSize.Y - sizes.height - safeAreaInsets.Y)
+                )
+                frame.Position = newPos
+                
+                if shadowFrame and shadowStartPos then
+                    shadowFrame.Position = UDim2.new(
+                        shadowStartPos.X.Scale, 
+                        newPos.X.Offset + 4,
+                        shadowStartPos.Y.Scale, 
+                        newPos.Y.Offset + 4
+                    )
+                end
             end
         end
-    end
+    end)
     
-    local function onInputEnded(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+    frame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
+            
+            -- Double tap detection for quick minimize
+            local currentTime = tick()
+            if not hasMoved and (currentTime - lastTouchTime) < doubleTapThreshold then
+                if not isMinimized then
+                    smoothMinimize()
+                end
+            end
+            lastTouchTime = currentTime
         end
-    end
-    
-    frame.InputBegan:Connect(onInputBegan)
-    frame.InputChanged:Connect(onInputChanged)
-    frame.InputEnded:Connect(onInputEnded)
+    end)
 end
 
-makeDraggable(MainFrame, MainShadow)
+setupMobileDrag(MainFrame, MainShadow)
 
--- Top Bar
+-- Top Bar with Mobile Design
 TopBar.Name = "TopBar"
 TopBar.Parent = MainFrame
-TopBar.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+TopBar.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
 TopBar.BorderSizePixel = 0
-TopBar.Size = UDim2.new(1, 0, 0, 45)
+TopBar.Size = UDim2.new(1, 0, 0, 55)
 TopBar.ZIndex = 15
 
 local TopBarGradient = Instance.new("UIGradient")
 TopBarGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 50, 75)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 50))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 65)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 25, 45))
 }
 TopBarGradient.Rotation = 90
 TopBarGradient.Parent = TopBar
 
 local TopCorner = Instance.new("UICorner")
-TopCorner.CornerRadius = UDim.new(0, 15)
+TopCorner.CornerRadius = UDim.new(0, sizes.cornerRadius)
 TopCorner.Parent = TopBar
 
--- Title with Icon
+-- Mobile-Optimized Title
 TitleLabel.Name = "TitleLabel"
 TitleLabel.Parent = TopBar
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Position = UDim2.new(0, 15, 0, 5)
-TitleLabel.Size = UDim2.new(1, -100, 0, 20)
+TitleLabel.Position = UDim2.new(0, sizes.padding, 0, 8)
+TitleLabel.Size = UDim2.new(1, -120, 0, 22)
 TitleLabel.Font = Enum.Font.GothamBold
 TitleLabel.Text = "🍰 DESSERT WAR"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
-TitleLabel.TextSize = sizes.fontSize + 2
+TitleLabel.TextSize = sizes.fontSize + 3
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.TextScaled = true
 TitleLabel.ZIndex = 20
 
 local SubTitle = Instance.new("TextLabel")
 SubTitle.Name = "SubTitle"
 SubTitle.Parent = TopBar
 SubTitle.BackgroundTransparency = 1
-SubTitle.Position = UDim2.new(0, 15, 0, 22)
-SubTitle.Size = UDim2.new(1, -100, 0, 18)
+SubTitle.Position = UDim2.new(0, sizes.padding, 0, 28)
+SubTitle.Size = UDim2.new(1, -120, 0, 20)
 SubTitle.Font = Enum.Font.Gotham
-SubTitle.Text = "v2.0 • Enhanced Edition"
-SubTitle.TextColor3 = Color3.fromRGB(150, 150, 200)
+SubTitle.Text = "📱 Mobile Exclusive v3.0"
+SubTitle.TextColor3 = Color3.fromRGB(150, 200, 255)
 SubTitle.TextSize = sizes.fontSize - 2
 SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+SubTitle.TextScaled = true
 SubTitle.ZIndex = 20
 
--- Control Buttons
-local buttonSize = isMobile and 35 or 30
+-- Mobile Control Buttons
+local buttonSize = 40
 MinimizeButton.Name = "MinimizeButton"
 MinimizeButton.Parent = TopBar
 MinimizeButton.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
 MinimizeButton.BorderSizePixel = 0
-MinimizeButton.Position = UDim2.new(1, -buttonSize*2-10, 0, (45-buttonSize)/2)
+MinimizeButton.Position = UDim2.new(1, -buttonSize*2-15, 0, (55-buttonSize)/2)
 MinimizeButton.Size = UDim2.new(0, buttonSize, 0, buttonSize)
 MinimizeButton.Font = Enum.Font.GothamBold
 MinimizeButton.Text = "−"
 MinimizeButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-MinimizeButton.TextSize = isMobile and 20 or 18
+MinimizeButton.TextSize = 22
 MinimizeButton.ZIndex = 20
 
 local MinCorner = Instance.new("UICorner")
-MinCorner.CornerRadius = UDim.new(0, 8)
+MinCorner.CornerRadius = UDim.new(0, 10)
 MinCorner.Parent = MinimizeButton
 
 CloseButton.Name = "CloseButton"
 CloseButton.Parent = TopBar
 CloseButton.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
 CloseButton.BorderSizePixel = 0
-CloseButton.Position = UDim2.new(1, -buttonSize-5, 0, (45-buttonSize)/2)
+CloseButton.Position = UDim2.new(1, -buttonSize-8, 0, (55-buttonSize)/2)
 CloseButton.Size = UDim2.new(0, buttonSize, 0, buttonSize)
 CloseButton.Font = Enum.Font.GothamBold
 CloseButton.Text = "✕"
 CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseButton.TextSize = isMobile and 16 or 14
+CloseButton.TextSize = 18
 CloseButton.ZIndex = 20
 
 local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 8)
+CloseCorner.CornerRadius = UDim.new(0, 10)
 CloseCorner.Parent = CloseButton
 
--- Content Frame
+-- Content Frame with Mobile Scrolling
 ContentFrame.Name = "ContentFrame"
 ContentFrame.Parent = MainFrame
 ContentFrame.BackgroundTransparency = 1
-ContentFrame.Position = UDim2.new(0, 0, 0, 45)
-ContentFrame.Size = UDim2.new(1, 0, 1, -45)
+ContentFrame.Position = UDim2.new(0, 0, 0, 55)
+ContentFrame.Size = UDim2.new(1, 0, 1, -55)
+ContentFrame.ScrollBarThickness = 8
+ContentFrame.ScrollBarImageColor3 = Color3.fromRGB(255, 150, 50)
+ContentFrame.ScrollBarImageTransparency = 0.2
+ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 300)
+ContentFrame.ScrollingDirection = Enum.ScrollingDirection.Y
+ContentFrame.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
+ContentFrame.ScrollingEnabled = true
 ContentFrame.ZIndex = 12
 
 -- Content Layout
 local ContentLayout = Instance.new("UIListLayout")
 ContentLayout.Parent = ContentFrame
 ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ContentLayout.Padding = UDim.new(0, 8)
+ContentLayout.Padding = UDim.new(0, sizes.padding)
 ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local ContentPadding = Instance.new("UIPadding")
 ContentPadding.Parent = ContentFrame
-ContentPadding.PaddingTop = UDim.new(0, 10)
-ContentPadding.PaddingBottom = UDim.new(0, 10)
-ContentPadding.PaddingLeft = UDim.new(0, 10)
-ContentPadding.PaddingRight = UDim.new(0, 10)
+ContentPadding.PaddingTop = UDim.new(0, sizes.padding)
+ContentPadding.PaddingBottom = UDim.new(0, sizes.padding)
+ContentPadding.PaddingLeft = UDim.new(0, sizes.padding)
+ContentPadding.PaddingRight = UDim.new(0, sizes.padding + 8)
 
--- Button Creation Function
-local function createButton(name, text, color, layoutOrder)
+-- Mobile Button Creation Function
+local function createMobileButton(name, text, color, layoutOrder)
     local button = Instance.new("TextButton")
     button.Name = name
     button.Parent = ContentFrame
     button.BackgroundColor3 = color
     button.BorderSizePixel = 0
     button.Size = UDim2.new(1, 0, 0, sizes.buttonHeight)
-    button.Font = Enum.Font.GothamSemibold
+    button.Font = Enum.Font.GothamBold
     button.Text = text
     button.TextColor3 = Color3.fromRGB(255, 255, 255)
     button.TextSize = sizes.fontSize
+    button.TextScaled = true
     button.LayoutOrder = layoutOrder
     button.ZIndex = 16
     
     local buttonCorner = Instance.new("UICorner")
-    buttonCorner.CornerRadius = UDim.new(0, 10)
+    buttonCorner.CornerRadius = UDim.new(0, 12)
     buttonCorner.Parent = button
     
     local buttonGradient = Instance.new("UIGradient")
     buttonGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.new(color.R * 1.2, color.G * 1.2, color.B * 1.2)),
-        ColorSequenceKeypoint.new(1, color)
+        ColorSequenceKeypoint.new(0, Color3.new(color.R * 1.3, color.G * 1.3, color.B * 1.3)),
+        ColorSequenceKeypoint.new(0.5, color),
+        ColorSequenceKeypoint.new(1, Color3.new(color.R * 0.8, color.G * 0.8, color.B * 0.8))
     }
     buttonGradient.Rotation = 90
     buttonGradient.Parent = button
     
+    -- Mobile touch effects
+    local function onTouchDown()
+        pcall(function()
+            VibrationService:Vibrate(Enum.VibrationMotor.Small, 0.05)
+        end)
+        
+        local pressTween = TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+            Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset, button.Size.Y.Scale, button.Size.Y.Offset - 4),
+            BackgroundColor3 = Color3.new(color.R * 0.7, color.G * 0.7, color.B * 0.7)
+        })
+        pressTween:Play()
+    end
+    
+    local function onTouchUp()
+        local releaseTween = TweenService:Create(button, TweenInfo.new(0.15, Enum.EasingStyle.Back), {
+            Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset, button.Size.Y.Scale, button.Size.Y.Offset + 4),
+            BackgroundColor3 = color
+        })
+        releaseTween:Play()
+    end
+    
+    button.TouchTap:Connect(function()
+        onTouchDown()
+        wait(0.1)
+        onTouchUp()
+    end)
+    
     return button
 end
 
--- Create Buttons
-ESPButton = createButton("ESPButton", "👁️ ESP Enemy: OFF", Color3.fromRGB(220, 53, 69), 1)
-AimButton = createButton("AimButton", "🎯 Auto Aim: OFF", Color3.fromRGB(138, 43, 226), 2)
-SpeedButton = createButton("SpeedButton", "⚡ Run Speed: OFF", Color3.fromRGB(0, 191, 255), 3)
+-- Create Mobile Buttons
+ESPButton = createMobileButton("ESPButton", "👁️ ESP ENEMY: OFF", Color3.fromRGB(220, 53, 69), 1)
+AimButton = createMobileButton("AimButton", "🎯 AUTO AIM: OFF", Color3.fromRGB(138, 43, 226), 2)
+SpeedButton = createMobileButton("SpeedButton", "⚡ RUN SPEED: OFF", Color3.fromRGB(0, 191, 255), 3)
 
--- Status Label
+-- Mobile Status Label
 StatusLabel.Name = "StatusLabel"
 StatusLabel.Parent = ContentFrame
-StatusLabel.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+StatusLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 55)
 StatusLabel.BorderSizePixel = 0
-StatusLabel.Size = UDim2.new(1, 0, 0, 25)
-StatusLabel.Font = Enum.Font.Gotham
-StatusLabel.Text = "🎮 Ready for battle!"
+StatusLabel.Size = UDim2.new(1, 0, 0, 35)
+StatusLabel.Font = Enum.Font.GothamSemibold
+StatusLabel.Text = "📱 Mobile ready for battle!"
 StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-StatusLabel.TextSize = sizes.fontSize - 1
+StatusLabel.TextSize = sizes.fontSize
+StatusLabel.TextScaled = true
 StatusLabel.TextXAlignment = Enum.TextXAlignment.Center
 StatusLabel.LayoutOrder = 4
 StatusLabel.ZIndex = 15
 
 local StatusCorner = Instance.new("UICorner")
-StatusCorner.CornerRadius = UDim.new(0, 8)
+StatusCorner.CornerRadius = UDim.new(0, 10)
 StatusCorner.Parent = StatusLabel
 
--- Minimized Frame
+local StatusGradient = Instance.new("UIGradient")
+StatusGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(45, 45, 70)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 50))
+}
+StatusGradient.Rotation = 45
+StatusGradient.Parent = StatusLabel
+
+-- Minimized Frame for Mobile
 MinimizedFrame.Name = "MinimizedFrame"
 MinimizedFrame.Parent = ScreenGui
-MinimizedFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+MinimizedFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
 MinimizedFrame.BorderSizePixel = 0
-MinimizedFrame.Position = UDim2.new(0, 20, 0, 200)
-MinimizedFrame.Size = UDim2.new(0, isMobile and 140 or 180, 0, isMobile and 40 or 45)
+MinimizedFrame.Position = UDim2.new(0, 15, 0, 150)
+MinimizedFrame.Size = UDim2.new(0, 150, 0, 50)
 MinimizedFrame.Visible = false
 MinimizedFrame.Active = true
-MinimizedFrame.ZIndex = 20
+MinimizedFrame.ZIndex = 25
 
 local minFrameCorner = Instance.new("UICorner")
-minFrameCorner.CornerRadius = UDim.new(0, 12)
+minFrameCorner.CornerRadius = UDim.new(0, 15)
 minFrameCorner.Parent = MinimizedFrame
 
 local minFrameGradient = Instance.new("UIGradient")
 minFrameGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 60)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 25, 40))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 55)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 35))
 }
 minFrameGradient.Rotation = 45
 minFrameGradient.Parent = MinimizedFrame
 
 local minFrameBorder = Instance.new("UIStroke")
-minFrameBorder.Color = Color3.fromRGB(255, 200, 100)
+minFrameBorder.Color = Color3.fromRGB(255, 150, 50)
 minFrameBorder.Thickness = 2
+minFrameBorder.Transparency = 0.3
 minFrameBorder.Parent = MinimizedFrame
 
 RestoreButton.Name = "RestoreButton"
 RestoreButton.Parent = MinimizedFrame
 RestoreButton.BackgroundTransparency = 1
 RestoreButton.Size = UDim2.new(1, 0, 1, 0)
-RestoreButton.Font = Enum.Font.GothamSemibold
+RestoreButton.Font = Enum.Font.GothamBold
 RestoreButton.Text = "🍰 Dessert War"
 RestoreButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-RestoreButton.TextSize = isMobile and 10 or 12
-RestoreButton.ZIndex = 21
+RestoreButton.TextSize = 12
+RestoreButton.TextScaled = true
+RestoreButton.ZIndex = 26
 
-makeDraggable(MinimizedFrame)
+setupMobileDrag(MinimizedFrame)
+
+-- Mobile Quick Actions Panel
+MobileControlPanel.Name = "MobileControlPanel"
+MobileControlPanel.Parent = ScreenGui
+MobileControlPanel.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+MobileControlPanel.BorderSizePixel = 0
+MobileControlPanel.Position = UDim2.new(0, 10, 1, -70)
+MobileControlPanel.Size = UDim2.new(1, -20, 0, 60)
+MobileControlPanel.ZIndex = 30
+
+local controlCorner = Instance.new("UICorner")
+controlCorner.CornerRadius = UDim.new(0, 15)
+controlCorner.Parent = MobileControlPanel
+
+local controlGradient = Instance.new("UIGradient")
+controlGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 25, 40)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 25))
+}
+controlGradient.Parent = MobileControlPanel
+
+local controlBorder = Instance.new("UIStroke")
+controlBorder.Color = Color3.fromRGB(255, 150, 50)
+controlBorder.Thickness = 1
+controlBorder.Transparency = 0.5
+controlBorder.Parent = MobileControlPanel
+
+QuickActionsFrame.Name = "QuickActionsFrame"
+QuickActionsFrame.Parent = MobileControlPanel
+QuickActionsFrame.BackgroundTransparency = 1
+QuickActionsFrame.Size = UDim2.new(1, 0, 1, 0)
+QuickActionsFrame.ZIndex = 31
+
+local quickLayout = Instance.new("UIListLayout")
+quickLayout.Parent = QuickActionsFrame
+quickLayout.FillDirection = Enum.FillDirection.Horizontal
+quickLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+quickLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+quickLayout.Padding = UDim.new(0, 15)
+
+-- Quick Action Buttons
+local function createQuickButton(text, color, callback)
+    local quickBtn = Instance.new("TextButton")
+    quickBtn.Parent = QuickActionsFrame
+    quickBtn.BackgroundColor3 = color
+    quickBtn.BorderSizePixel = 0
+    quickBtn.Size = UDim2.new(0, 70, 0, 40)
+    quickBtn.Font = Enum.Font.GothamBold
+    quickBtn.Text = text
+    quickBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    quickBtn.TextSize = 16
+    quickBtn.TextScaled = true
+    quickBtn.ZIndex = 32
+    
+    local quickCorner = Instance.new("UICorner")
+    quickCorner.CornerRadius = UDim.new(0, 10)
+    quickCorner.Parent = quickBtn
+    
+    local quickGradient = Instance.new("UIGradient")
+    quickGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.new(color.R * 1.2, color.G * 1.2, color.B * 1.2)),
+        ColorSequenceKeypoint.new(1, color)
+    }
+    quickGradient.Rotation = 90
+    quickGradient.Parent = quickBtn
+    
+    quickBtn.TouchTap:Connect(function()
+        pcall(function()
+            VibrationService:Vibrate(Enum.VibrationMotor.Small, 0.08)
+        end)
+        callback()
+    end)
+    
+    return quickBtn
+end
+
+-- Floating Action Button
+FloatingButton.Name = "FloatingButton"
+FloatingButton.Parent = ScreenGui
+FloatingButton.BackgroundColor3 = Color3.fromRGB(255, 150, 50)
+FloatingButton.BorderSizePixel = 0
+FloatingButton.Position = UDim2.new(1, -70, 0.5, -30)
+FloatingButton.Size = UDim2.new(0, 60, 0, 60)
+FloatingButton.Font = Enum.Font.GothamBold
+FloatingButton.Text = "🍰"
+FloatingButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+FloatingButton.TextSize = 24
+FloatingButton.ZIndex = 35
+FloatingButton.Visible = false
+
+local floatingCorner = Instance.new("UICorner")
+floatingCorner.CornerRadius = UDim.new(0.5, 0)
+floatingCorner.Parent = FloatingButton
+
+local floatingShadow = Instance.new("Frame")
+floatingShadow.Name = "FloatingShadow"
+floatingShadow.Parent = ScreenGui
+floatingShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+floatingShadow.BackgroundTransparency = 0.7
+floatingShadow.BorderSizePixel = 0
+floatingShadow.Position = UDim2.new(1, -67, 0.5, -27)
+floatingShadow.Size = UDim2.new(0, 60, 0, 60)
+floatingShadow.ZIndex = 34
+floatingShadow.Visible = false
+
+local floatingShadowCorner = Instance.new("UICorner")
+floatingShadowCorner.CornerRadius = UDim.new(0.5, 0)
+floatingShadowCorner.Parent = floatingShadow
+
+setupMobileDrag(FloatingButton, floatingShadow)
 
 -- Animation Functions
 local function smoothMinimize()
     isMinimized = true
     
-    local minimizeTween = TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+    pcall(function()
+        VibrationService:Vibrate(Enum.VibrationMotor.Large, 0.2)
+    end)
+    
+    local minimizeTween = TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
         Size = UDim2.new(0, 0, 0, 0),
         Position = UDim2.new(0.5, 0, 0.5, 0)
     })
     
-    local shadowTween = TweenService:Create(MainShadow, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+    local shadowTween = TweenService:Create(MainShadow, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
         Size = UDim2.new(0, 0, 0, 0),
         BackgroundTransparency = 1
     })
@@ -378,25 +590,47 @@ local function smoothMinimize()
         MainFrame.Visible = false
         MainShadow.Visible = false
         MinimizedFrame.Visible = true
+        FloatingButton.Visible = true
+        floatingShadow.Visible = true
         
+        -- Animate minimized frame appearance
         MinimizedFrame.Size = UDim2.new(0, 0, 0, 0)
         local restoreTween = TweenService:Create(MinimizedFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, isMobile and 140 or 180, 0, isMobile and 40 or 45)
+            Size = UDim2.new(0, 150, 0, 50)
         })
         restoreTween:Play()
+        
+        -- Animate floating button
+        FloatingButton.Size = UDim2.new(0, 0, 0, 0)
+        local floatingTween = TweenService:Create(FloatingButton, TweenInfo.new(0.5, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 60, 0, 60)
+        })
+        floatingTween:Play()
     end)
 end
 
 local function smoothRestore()
     isMinimized = false
     
+    pcall(function()
+        VibrationService:Vibrate(Enum.VibrationMotor.Large, 0.15)
+    end)
+    
     local hideTween = TweenService:Create(MinimizedFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
         Size = UDim2.new(0, 0, 0, 0)
     })
+    
+    local hideFloatingTween = TweenService:Create(FloatingButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+        Size = UDim2.new(0, 0, 0, 0)
+    })
+    
     hideTween:Play()
+    hideFloatingTween:Play()
     
     hideTween.Completed:Connect(function()
         MinimizedFrame.Visible = false
+        FloatingButton.Visible = false
+        floatingShadow.Visible = false
         MainFrame.Visible = true
         MainShadow.Visible = true
         
@@ -405,14 +639,14 @@ local function smoothRestore()
         MainShadow.Size = UDim2.new(0, 0, 0, 0)
         MainShadow.BackgroundTransparency = 1
         
-        local restoreTween = TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        local restoreTween = TweenService:Create(MainFrame, TweenInfo.new(0.6, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
             Size = UDim2.new(0, sizes.width, 0, sizes.height),
-            Position = UDim2.new(0, 30, 0, 120)
+            Position = UDim2.new(0.5, -sizes.width/2, 0.5, -sizes.height/2)
         })
         
-        local shadowRestoreTween = TweenService:Create(MainShadow, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        local shadowRestoreTween = TweenService:Create(MainShadow, TweenInfo.new(0.6, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
             Size = UDim2.new(0, sizes.width, 0, sizes.height),
-            BackgroundTransparency = 0.7
+            BackgroundTransparency = 0.6
         })
         
         restoreTween:Play()
@@ -424,6 +658,19 @@ end
 local function updateStatus(text, color)
     StatusLabel.Text = text
     StatusLabel.TextColor3 = color or Color3.fromRGB(100, 255, 100)
+    
+    -- Status animation
+    local statusTween = TweenService:Create(StatusLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+        Size = UDim2.new(StatusLabel.Size.X.Scale, StatusLabel.Size.X.Offset, StatusLabel.Size.Y.Scale, StatusLabel.Size.Y.Offset + 5)
+    })
+    statusTween:Play()
+    
+    statusTween.Completed:Connect(function()
+        local backTween = TweenService:Create(StatusLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+            Size = UDim2.new(StatusLabel.Size.X.Scale, StatusLabel.Size.X.Offset, StatusLabel.Size.Y.Scale, StatusLabel.Size.Y.Offset - 5)
+        })
+        backTween:Play()
+    end)
 end
 
 local function safeCall(func, errorMsg)
@@ -436,7 +683,7 @@ local function safeCall(func, errorMsg)
     return true
 end
 
--- Enhanced Enemy Detection
+-- Mobile-Optimized Enemy Detection
 local function isEnemy(player)
     if not player or player == LocalPlayer then
         return false
@@ -451,11 +698,10 @@ local function isEnemy(player)
         return false
     end
     
-    -- Advanced team detection logic
+    -- Mobile-optimized team detection
     local localTeam = LocalPlayer.Team
     local playerTeam = player.Team
     
-    -- If no teams or different teams, consider as enemy
     if not localTeam or not playerTeam or localTeam ~= playerTeam then
         return true
     end
@@ -476,8 +722,8 @@ local function getPlayerDistance(player)
     return (localChar.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
 end
 
--- Enhanced ESP System
-local function createAdvancedESP(player)
+-- Mobile-Optimized ESP System
+local function createMobileESP(player)
     if not player.Character then return end
     
     local character = player.Character
@@ -487,69 +733,72 @@ local function createAdvancedESP(player)
     
     if not humanoidRootPart or not humanoid then return end
     
-    -- Create ESP Box with better visibility
+    -- Mobile-optimized ESP Box
     local espBox = Instance.new("BoxHandleAdornment")
-    espBox.Name = "ESPBox"
+    espBox.Name = "MobileESPBox"
     espBox.Parent = humanoidRootPart
-    espBox.Size = Vector3.new(4, 6, 1)
-    espBox.Color3 = Color3.fromRGB(255, 0, 0)
-    espBox.Transparency = 0.6
+    espBox.Size = Vector3.new(4.5, 6.5, 1.2)
+    espBox.Color3 = Color3.fromRGB(255, 50, 50)
+    espBox.Transparency = 0.5
     espBox.AlwaysOnTop = true
     espBox.ZIndex = 10
     
-    -- Create ESP Highlight for better visibility
+    -- Enhanced Mobile Highlight
     local highlight = Instance.new("Highlight")
-    highlight.Name = "ESPHighlight"
+    highlight.Name = "MobileESPHighlight"
     highlight.Parent = character
-    highlight.FillColor = Color3.fromRGB(255, 0, 0)
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 0)
-    highlight.FillTransparency = 0.8
-    highlight.OutlineTransparency = 0.3
+    highlight.FillColor = Color3.fromRGB(255, 50, 50)
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 100)
+    highlight.FillTransparency = 0.75
+    highlight.OutlineTransparency = 0.2
     highlight.Adornee = character
     
-    -- Create ESP GUI with enhanced info
+    -- Mobile-optimized ESP GUI
     local espGui = Instance.new("BillboardGui")
-    espGui.Name = "ESPGui"
+    espGui.Name = "MobileESPGui"
     espGui.Parent = head or humanoidRootPart
-    espGui.Size = UDim2.new(0, 200, 0, 80)
-    espGui.StudsOffset = Vector3.new(0, 3, 0)
+    espGui.Size = UDim2.new(0, 250, 0, 100)
+    espGui.StudsOffset = Vector3.new(0, 4, 0)
     espGui.AlwaysOnTop = true
     
-    -- Player Name
+    -- Player Name (Mobile Optimized)
     local nameText = Instance.new("TextLabel")
     nameText.Parent = espGui
     nameText.BackgroundTransparency = 1
     nameText.Size = UDim2.new(1, 0, 0.4, 0)
     nameText.Font = Enum.Font.GothamBold
     nameText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    nameText.TextSize = 16
+    nameText.TextSize = 18
     nameText.TextStrokeTransparency = 0
     nameText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    nameText.TextScaled = true
     nameText.Text = player.Name
     
-    -- Distance Text
+    -- Distance Text (Mobile Optimized)
     local distanceText = Instance.new("TextLabel")
     distanceText.Parent = espGui
     distanceText.BackgroundTransparency = 1
     distanceText.Position = UDim2.new(0, 0, 0.4, 0)
     distanceText.Size = UDim2.new(1, 0, 0.3, 0)
-    distanceText.Font = Enum.Font.Gotham
-    distanceText.TextColor3 = Color3.fromRGB(255, 255, 0)
-    distanceText.TextSize = 14
+    distanceText.Font = Enum.Font.GothamBold
+    distanceText.TextColor3 = Color3.fromRGB(255, 255, 100)
+    distanceText.TextSize = 16
     distanceText.TextStrokeTransparency = 0
     distanceText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    distanceText.TextScaled = true
     
-    -- Health Text
+    -- Health Text (Mobile Optimized)
     local healthText = Instance.new("TextLabel")
     healthText.Parent = espGui
     healthText.BackgroundTransparency = 1
     healthText.Position = UDim2.new(0, 0, 0.7, 0)
     healthText.Size = UDim2.new(1, 0, 0.3, 0)
-    healthText.Font = Enum.Font.Gotham
-    healthText.TextColor3 = Color3.fromRGB(0, 255, 0)
-    healthText.TextSize = 12
+    healthText.Font = Enum.Font.GothamBold
+    healthText.TextColor3 = Color3.fromRGB(100, 255, 100)
+    healthText.TextSize = 14
     healthText.TextStrokeTransparency = 0
     healthText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    healthText.TextScaled = true
     
     -- Store ESP objects
     espObjects[player] = {
@@ -561,39 +810,40 @@ local function createAdvancedESP(player)
         healthText = healthText
     }
     
-    -- Update ESP info function
-    local function updateESPInfo()
+    -- Mobile ESP update function
+    local function updateMobileESP()
         if espObjects[player] and player.Character and humanoidRootPart.Parent then
             local distance = getPlayerDistance(player)
             local health = humanoid.Health
             local maxHealth = humanoid.MaxHealth
             
-            -- Update distance
-            distanceText.Text = math.floor(distance) .. "m"
+            -- Update texts
+            distanceText.Text = "📏 " .. math.floor(distance) .. "m"
+            healthText.Text = "❤️ " .. math.floor(health) .. "/" .. math.floor(maxHealth)
             
-            -- Update health
-            healthText.Text = "HP: " .. math.floor(health) .. "/" .. math.floor(maxHealth)
-            
-            -- Color coding based on distance and health
-            if distance < 50 then
+            -- Mobile-optimized color coding
+            if distance < 30 then
                 espBox.Color3 = Color3.fromRGB(255, 0, 0) -- Red - Very close
                 highlight.FillColor = Color3.fromRGB(255, 0, 0)
-            elseif distance < 150 then
-                espBox.Color3 = Color3.fromRGB(255, 165, 0) -- Orange - Close
-                highlight.FillColor = Color3.fromRGB(255, 165, 0)
+                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+            elseif distance < 100 then
+                espBox.Color3 = Color3.fromRGB(255, 150, 0) -- Orange - Close
+                highlight.FillColor = Color3.fromRGB(255, 150, 0)
+                highlight.OutlineColor = Color3.fromRGB(255, 255, 100)
             else
                 espBox.Color3 = Color3.fromRGB(255, 255, 0) -- Yellow - Far
                 highlight.FillColor = Color3.fromRGB(255, 255, 0)
+                highlight.OutlineColor = Color3.fromRGB(255, 255, 200)
             end
             
             -- Health color coding
             local healthPercent = health / maxHealth
             if healthPercent > 0.7 then
-                healthText.TextColor3 = Color3.fromRGB(0, 255, 0) -- Green
+                healthText.TextColor3 = Color3.fromRGB(100, 255, 100) -- Green
             elseif healthPercent > 0.3 then
-                healthText.TextColor3 = Color3.fromRGB(255, 255, 0) -- Yellow
+                healthText.TextColor3 = Color3.fromRGB(255, 255, 100) -- Yellow
             else
-                healthText.TextColor3 = Color3.fromRGB(255, 0, 0) -- Red
+                healthText.TextColor3 = Color3.fromRGB(255, 100, 100) -- Red
             end
         end
     end
@@ -602,7 +852,7 @@ local function createAdvancedESP(player)
     local connection
     connection = RunService.Heartbeat:Connect(function()
         if espEnabled and espObjects[player] then
-            updateESPInfo()
+            updateMobileESP()
         else
             connection:Disconnect()
         end
@@ -627,17 +877,16 @@ local function clearAllESP()
     espObjects = {}
 end
 
--- Enhanced ESP Update with Long Range Detection
-local function updateAdvancedESP()
+-- Mobile ESP Update System
+local function updateMobileESP()
     if not espEnabled then return end
     
     for _, player in pairs(Players:GetPlayers()) do
         if isEnemy(player) then
             local distance = getPlayerDistance(player)
             
-            -- Only create ESP if within max distance and doesn't already exist
             if distance <= maxESPDistance and not espObjects[player] then
-                createAdvancedESP(player)
+                createMobileESP(player)
             elseif distance > maxESPDistance and espObjects[player] then
                 removeESP(player)
             end
@@ -647,30 +896,29 @@ local function updateAdvancedESP()
     end
 end
 
--- Enhanced Auto Aim System
-local function getClosestEnemyInFOV()
+-- Mobile-Optimized Auto Aim System
+local function getClosestEnemyMobile()
     local closestPlayer = nil
     local closestDistance = maxAimDistance
-    local closestAngle = math.huge
-    
-    local camera = Camera
-    local cameraPosition = camera.CFrame.Position
-    local cameraDirection = camera.CFrame.LookVector
     
     for _, player in pairs(Players:GetPlayers()) do
         if isEnemy(player) and player.Character then
             local targetPart = player.Character:FindFirstChild("Head") or player.Character:FindFirstChild("HumanoidRootPart")
             if targetPart then
                 local distance = getPlayerDistance(player)
+                
+                -- Mobile-optimized FOV check
+                local camera = Camera
+                local cameraPosition = camera.CFrame.Position
+                local cameraDirection = camera.CFrame.LookVector
                 local targetPosition = targetPart.Position
                 local directionToTarget = (targetPosition - cameraPosition).Unit
-                local angle = math.acos(cameraDirection:Dot(directionToTarget))
+                local angle = math.acos(math.clamp(cameraDirection:Dot(directionToTarget), -1, 1))
                 
-                -- Check if target is within FOV (60 degrees) and closer
-                if angle < math.rad(60) and distance < closestDistance then
+                -- Wider FOV for mobile (80 degrees)
+                if angle < math.rad(80) and distance < closestDistance then
                     closestDistance = distance
                     closestPlayer = player
-                    closestAngle = angle
                 end
             end
         end
@@ -679,36 +927,13 @@ local function getClosestEnemyInFOV()
     return closestPlayer
 end
 
-local function predictTargetPosition(target)
-    if not target or not target.Character then
-        return nil
-    end
-    
-    local targetPart = target.Character:FindFirstChild("Head") or target.Character:FindFirstChild("HumanoidRootPart")
-    if not targetPart then
-        return nil
-    end
-    
-    local humanoidRootPart = target.Character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then
-        return targetPart.Position
-    end
-    
-    -- Simple velocity prediction
-    local velocity = humanoidRootPart.Velocity
-    local distance = getPlayerDistance(target)
-    local timeToTarget = distance / 1000 -- Assume projectile speed of 1000 studs/second
-    
-    return targetPart.Position + (velocity * timeToTarget)
-end
-
-local function smartAimAtTarget(target)
+local function mobileAimAtTarget(target)
     if not target or not target.Character then
         return
     end
     
-    local predictedPosition = predictTargetPosition(target)
-    if not predictedPosition then
+    local targetPart = target.Character:FindFirstChild("Head") or target.Character:FindFirstChild("HumanoidRootPart")
+    if not targetPart then
         return
     end
     
@@ -717,33 +942,39 @@ local function smartAimAtTarget(target)
         return
     end
     
-    -- Calculate aim position with prediction
+    -- Mobile-optimized aiming with prediction
+    local humanoidRootPart = target.Character:FindFirstChild("HumanoidRootPart")
+    local velocity = humanoidRootPart and humanoidRootPart.Velocity or Vector3.new(0, 0, 0)
+    local distance = getPlayerDistance(target)
+    local timeToTarget = distance / 800 -- Mobile-optimized projectile speed
+    
+    local predictedPosition = targetPart.Position + (velocity * timeToTarget)
+    
+    -- Mobile-friendly smooth aiming
     local cameraPosition = Camera.CFrame.Position
     local direction = (predictedPosition - cameraPosition).Unit
     
-    -- Smooth aiming with enhanced smoothness
     local currentCFrame = Camera.CFrame
     local targetCFrame = CFrame.lookAt(cameraPosition, predictedPosition)
     
-    -- Dynamic smoothness based on distance
-    local distance = getPlayerDistance(target)
-    local dynamicSmoothness = math.min(aimSmoothness * (distance / 100), 0.5)
+    -- Mobile-optimized smoothness
+    local mobileSmoothness = aimSmoothness * (distance / 150)
+    mobileSmoothness = math.clamp(mobileSmoothness, 0.08, 0.25)
     
-    -- Lerp for smooth aiming
-    local newCFrame = currentCFrame:Lerp(targetCFrame, dynamicSmoothness)
+    local newCFrame = currentCFrame:Lerp(targetCFrame, mobileSmoothness)
     Camera.CFrame = newCFrame
 end
 
-local function startAdvancedAutoAim()
+local function startMobileAutoAim()
     if aimUpdateConnection then
         aimUpdateConnection:Disconnect()
     end
     
     aimUpdateConnection = RunService.Heartbeat:Connect(function()
         if autoAimEnabled then
-            currentTarget = getClosestEnemyInFOV()
+            currentTarget = getClosestEnemyMobile()
             if currentTarget then
-                smartAimAtTarget(currentTarget)
+                mobileAimAtTarget(currentTarget)
             end
         end
     end)
@@ -757,8 +988,8 @@ local function stopAutoAim()
     currentTarget = nil
 end
 
--- Run Speed System
-local function startRunSpeed()
+-- Mobile Run Speed System
+local function startMobileRunSpeed()
     if speedConnection then
         speedConnection:Disconnect()
     end
@@ -791,46 +1022,33 @@ local function stopRunSpeed()
     end
 end
 
--- Button Setup Function
-local function setupButton(button, callback)
-    button.MouseButton1Click:Connect(callback)
-    if isMobile then
-        button.TouchTap:Connect(callback)
-    end
-    
-    -- Enhanced hover effects
-    if not isMobile then
-        button.MouseEnter:Connect(function()
-            local hoverTween = TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                BackgroundColor3 = Color3.new(button.BackgroundColor3.R * 1.3, button.BackgroundColor3.G * 1.3, button.BackgroundColor3.B * 1.3),
-                Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset, button.Size.Y.Scale, button.Size.Y.Offset + 2)
-            })
-            hoverTween:Play()
+-- Mobile Button Setup
+local function setupMobileButton(button, callback)
+    button.TouchTap:Connect(function()
+        pcall(function()
+            VibrationService:Vibrate(Enum.VibrationMotor.Large, 0.1)
         end)
-        
-        button.MouseLeave:Connect(function()
-            local leaveTween = TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                BackgroundColor3 = button.BackgroundColor3,
-                Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset, button.Size.Y.Scale, button.Size.Y.Offset - 2)
-            })
-            leaveTween:Play()
-        end)
-    end
+        callback()
+    end)
 end
 
 -- Button Events
-setupButton(MinimizeButton, smoothMinimize)
-setupButton(RestoreButton, smoothRestore)
+setupMobileButton(MinimizeButton, smoothMinimize)
+setupMobileButton(RestoreButton, smoothRestore)
+setupMobileButton(FloatingButton, smoothRestore)
 
-setupButton(CloseButton, function()
-    local closeTween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+setupMobileButton(CloseButton, function()
+    pcall(function()
+        VibrationService:Vibrate(Enum.VibrationMotor.Large, 0.3)
+    end)
+    
+    local closeTween = TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
         Size = UDim2.new(0, 0, 0, 0),
         Position = UDim2.new(0.5, 0, 0.5, 0)
     })
     closeTween:Play()
     
     closeTween.Completed:Connect(function()
-        -- Cleanup
         clearAllESP()
         stopAutoAim()
         stopRunSpeed()
@@ -838,28 +1056,24 @@ setupButton(CloseButton, function()
     end)
 end)
 
-setupButton(ESPButton, function()
+setupMobileButton(ESPButton, function()
     espEnabled = not espEnabled
     
     if espEnabled then
-        ESPButton.Text = "👁️ ESP Enemy: ON"
+        ESPButton.Text = "👁️ ESP ENEMY: ON"
         ESPButton.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
-        updateStatus("👁️ Advanced ESP activated!", Color3.fromRGB(100, 255, 100))
+        updateStatus("👁️ Mobile ESP activated!", Color3.fromRGB(100, 255, 100))
         
-        -- Start ESP updates
         if espUpdateConnection then
             espUpdateConnection:Disconnect()
         end
-        espUpdateConnection = RunService.Heartbeat:Connect(updateAdvancedESP)
-        
-        -- Initial ESP creation
-        updateAdvancedESP()
+        espUpdateConnection = RunService.Heartbeat:Connect(updateMobileESP)
+        updateMobileESP()
     else
-        ESPButton.Text = "👁️ ESP Enemy: OFF"
+        ESPButton.Text = "👁️ ESP ENEMY: OFF"
         ESPButton.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
         updateStatus("👁️ ESP deactivated", Color3.fromRGB(255, 255, 100))
         
-        -- Stop ESP updates and clear
         if espUpdateConnection then
             espUpdateConnection:Disconnect()
             espUpdateConnection = nil
@@ -868,43 +1082,109 @@ setupButton(ESPButton, function()
     end
 end)
 
-setupButton(AimButton, function()
+setupMobileButton(AimButton, function()
     autoAimEnabled = not autoAimEnabled
     
     if autoAimEnabled then
-        AimButton.Text = "🎯 Auto Aim: ON"
+        AimButton.Text = "🎯 AUTO AIM: ON"
         AimButton.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
-        updateStatus("🎯 Smart auto aim activated!", Color3.fromRGB(100, 255, 100))
-        startAdvancedAutoAim()
+        updateStatus("🎯 Mobile auto aim activated!", Color3.fromRGB(100, 255, 100))
+        startMobileAutoAim()
     else
-        AimButton.Text = "🎯 Auto Aim: OFF"
+        AimButton.Text = "🎯 AUTO AIM: OFF"
         AimButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
         updateStatus("🎯 Auto aim deactivated", Color3.fromRGB(255, 255, 100))
         stopAutoAim()
     end
 end)
 
-setupButton(SpeedButton, function()
+setupMobileButton(SpeedButton, function()
     runSpeedEnabled = not runSpeedEnabled
     
     if runSpeedEnabled then
-        SpeedButton.Text = "⚡ Run Speed: ON"
+        SpeedButton.Text = "⚡ RUN SPEED: ON"
         SpeedButton.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
-        updateStatus("⚡ Run speed boost activated!", Color3.fromRGB(100, 255, 100))
-        startRunSpeed()
+        updateStatus("⚡ Mobile speed boost activated!", Color3.fromRGB(100, 255, 100))
+        startMobileRunSpeed()
     else
-        SpeedButton.Text = "⚡ Run Speed: OFF"
+        SpeedButton.Text = "⚡ RUN SPEED: OFF"
         SpeedButton.BackgroundColor3 = Color3.fromRGB(0, 191, 255)
-        updateStatus("⚡ Run speed normalized", Color3.fromRGB(255, 255, 100))
+        updateStatus("⚡ Speed normalized", Color3.fromRGB(255, 255, 100))
         stopRunSpeed()
     end
 end)
 
+-- Create Quick Action Buttons
+createQuickButton("👁️", Color3.fromRGB(220, 53, 69), function()
+    ESPButton.TouchTap()
+end)
+
+createQuickButton("🎯", Color3.fromRGB(138, 43, 226), function()
+    AimButton.TouchTap()
+end)
+
+createQuickButton("⚡", Color3.fromRGB(0, 191, 255), function()
+    SpeedButton.TouchTap()
+end)
+
+createQuickButton("📱", Color3.fromRGB(255, 150, 50), function()
+    if isMinimized then
+        smoothRestore()
+    else
+        smoothMinimize()
+    end
+end)
+
+-- Mobile Gesture System
+local function setupMobileGestures()
+    local swipeThreshold = 100
+    local swipeStartPos = nil
+    local swipeStartTime = 0
+    
+    ScreenGui.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            swipeStartPos = input.Position
+            swipeStartTime = tick()
+        end
+    end)
+    
+    ScreenGui.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch and swipeStartPos then
+            local swipeEndPos = input.Position
+            local swipeTime = tick() - swipeStartTime
+            local swipeDistance = (swipeEndPos - swipeStartPos).Magnitude
+            local swipeDirection = (swipeEndPos - swipeStartPos).Unit
+            
+            -- Quick swipe gestures
+            if swipeTime < 0.5 and swipeDistance > swipeThreshold then
+                -- Swipe up to minimize
+                if swipeDirection.Y < -0.7 and not isMinimized then
+                    smoothMinimize()
+                -- Swipe down to restore
+                elseif swipeDirection.Y > 0.7 and isMinimized then
+                    smoothRestore()
+                -- Swipe left/right to toggle features
+                elseif math.abs(swipeDirection.X) > 0.7 then
+                    if swipeDirection.X > 0 then
+                        -- Swipe right - toggle ESP
+                        ESPButton.TouchTap()
+                    else
+                        -- Swipe left - toggle aim
+                        AimButton.TouchTap()
+                    end
+                end
+            end
+        end
+    end)
+end
+
+setupMobileGestures()
+
 -- Player Events
 Players.PlayerAdded:Connect(function(player)
     if espEnabled then
-        wait(2) -- Wait for character to load
-        updateAdvancedESP()
+        wait(2)
+        updateMobileESP()
     end
 end)
 
@@ -914,9 +1194,8 @@ end)
 
 -- Character respawn handling
 LocalPlayer.CharacterAdded:Connect(function()
-    wait(3) -- Wait for character to fully load
+    wait(3)
     
-    -- Get original walk speed
     local character = LocalPlayer.Character
     if character then
         local humanoid = character:FindFirstChild("Humanoid")
@@ -925,101 +1204,89 @@ LocalPlayer.CharacterAdded:Connect(function()
         end
     end
     
-    -- Reapply speed boost if enabled
     if runSpeedEnabled then
-        startRunSpeed()
+        startMobileRunSpeed()
     end
     
-    -- Update ESP
     if espEnabled then
-        updateAdvancedESP()
+        updateMobileESP()
     end
 end)
 
--- Keyboard shortcuts (PC only)
-if not isMobile then
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        
-        if input.KeyCode == Enum.KeyCode.E then
-            ESPButton.MouseButton1Click()
-        elseif input.KeyCode == Enum.KeyCode.T then
-            AimButton.MouseButton1Click()
-        elseif input.KeyCode == Enum.KeyCode.R then
-            SpeedButton.MouseButton1Click()
-        elseif input.KeyCode == Enum.KeyCode.H then
-            if isMinimized then
-                smoothRestore()
-            else
-                smoothMinimize()
-            end
-        end
-    end)
-end
+-- Screen orientation change handling
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+    screenSize = workspace.CurrentCamera.ViewportSize
+    safeAreaInsets = GuiService:GetGuiInset()
+    sizes = getMobileSizes()
+    
+    -- Update GUI sizes for new orientation
+    MainFrame.Size = UDim2.new(0, sizes.width, 0, sizes.height)
+    MainShadow.Size = UDim2.new(0, sizes.width, 0, sizes.height)
+    
+    -- Update mobile control panel
+    MobileControlPanel.Position = UDim2.new(0, 10, 1, -70)
+    MobileControlPanel.Size = UDim2.new(1, -20, 0, 60)
+end)
 
--- Cleanup on GUI destruction
+-- Cleanup
 ScreenGui.AncestryChanged:Connect(function()
     if not ScreenGui.Parent then
         clearAllESP()
         stopAutoAim()
         stopRunSpeed()
-        if espUpdateConnection then
-            espUpdateConnection:Disconnect()
-        end
-        if aimUpdateConnection then
-            aimUpdateConnection:Disconnect()
-        end
-        if speedConnection then
-            speedConnection:Disconnect()
-        end
+        if espUpdateConnection then espUpdateConnection:Disconnect() end
+        if aimUpdateConnection then aimUpdateConnection:Disconnect() end
+        if speedConnection then speedConnection:Disconnect() end
+        if gestureConnection then gestureConnection:Disconnect() end
     end
 end)
 
 -- Initialize
 spawn(function()
     wait(2)
-    updateStatus("🍰 Enhanced Dessert War loaded!", Color3.fromRGB(255, 200, 100))
+    updateStatus("📱 Mobile Dessert War ready!", Color3.fromRGB(255, 200, 100))
     wait(3)
-    updateStatus("🎮 Ready for enhanced battle!", Color3.fromRGB(100, 255, 100))
+    updateStatus("🎮 Touch controls active!", Color3.fromRGB(100, 255, 100))
 end)
 
-print("🍰 DESSERT WAR ENHANCED SCRIPT v2.0 LOADED!")
-print("=" .. string.rep("=", 50))
-print("✨ ENHANCED FEATURES:")
-print("   👁️ Advanced ESP with Long Range Detection")
-print("   🎯 Smart Auto Aim with Prediction")
-print("   ⚡ Run Speed Boost System")
-print("   🖱️ Draggable & Minimizable GUI")
-print("   📱 Full Mobile & PC Support")
-print("   🎨 Professional UI Design")
+print("🍰 DESSERT WAR MOBILE EXCLUSIVE v3.0 LOADED!")
+print("=" .. string.rep("=", 55))
+print("📱 MOBILE EXCLUSIVE FEATURES:")
+print("   ✅ Touch-Optimized Controls")
+print("   ✅ Haptic Feedback Support")
+print("   ✅ Gesture Recognition")
+print("   ✅ Screen Orientation Support")
+print("   ✅ Mobile-Optimized ESP")
+print("   ✅ Touch-Friendly Auto Aim")
+print("   ✅ Floating Action Button")
+print("   ✅ Quick Actions Panel")
 print("")
-print("🎯 ESP FEATURES:")
-print("   • Long range enemy detection (2000+ studs)")
-print("   • Player names and health display")
-print("   • Distance measurement")
-print("   • Color-coded threat levels")
-print("   • Highlight system for better visibility")
+print("👆 TOUCH CONTROLS:")
+print("   • Tap buttons to toggle features")
+print("   • Drag GUI to move around")
+print("   • Double tap to minimize")
+print("   • Use quick action buttons")
 print("")
-print("🎯 AUTO AIM FEATURES:")
-print("   • FOV-based targeting")
+print("🤏 GESTURE CONTROLS:")
+print("   • Swipe UP to minimize")
+print("   • Swipe DOWN to restore")
+print("   • Swipe RIGHT to toggle ESP")
+print("   • Swipe LEFT to toggle aim")
+print("")
+print("🎯 MOBILE ESP FEATURES:")
+print("   • Long range detection (1500+ studs)")
+print("   • Touch-optimized visibility")
+print("   • Mobile-friendly text sizes")
+print("   • Enhanced color coding")
+print("")
+print("🎯 MOBILE AUTO AIM:")
+print("   • Wider FOV for mobile (80°)")
+print("   • Touch-optimized smoothness")
 print("   • Movement prediction")
-print("   • Dynamic smoothness")
-print("   • Smart target selection")
+print("   • Mobile-friendly targeting")
 print("")
-if isMobile then
-    print("📱 MOBILE CONTROLS:")
-    print("   👁️ Tap ESP button to toggle")
-    print("   🎯 Tap Aim button to toggle")
-    print("   ⚡ Tap Speed button to toggle")
-    print("   📱 Drag GUI to move")
-    print("   − Tap minimize button")
-else
-    print("⌨️ KEYBOARD SHORTCUTS:")
-    print("   E - Toggle ESP")
-    print("   T - Toggle Auto Aim")
-    print("   R - Toggle Run Speed")
-    print("   H - Minimize/Restore GUI")
-end
+print("📱 SCREEN: " .. screenSize.X .. "x" .. screenSize.Y)
+print("🔧 GUI SIZE: " .. sizes.width .. "x" .. sizes.height)
 print("")
-print("🚀 READY TO DOMINATE DESSERT WAR!")
-print("=" .. string.rep("=", 50))
+print("🚀 READY FOR MOBILE DESSERT WAR DOMINATION!")
+print("=" .. string.rep("=", 55))
