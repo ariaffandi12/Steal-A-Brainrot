@@ -1,0 +1,1001 @@
+-- Steal a Brainrot GUI Script - Mobile Optimized Edition
+-- Version: 1.1 - Mobile & PC Compatible
+-- Features: Touch Controls, Mobile UI, Auto Collect, Auto Sell, Speed Boost
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local TeleportService = game:GetService("TeleportService")
+local GuiService = game:GetService("GuiService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local RootPart = Character:WaitForChild("HumanoidRootPart")
+
+-- Mobile Detection
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local screenSize = workspace.CurrentCamera.ViewportSize
+
+-- Variables
+local autoCollectEnabled = false
+local autoSellEnabled = false
+local speedBoostEnabled = false
+local jumpBoostEnabled = false
+local antiAFKEnabled = false
+local selectedPlayer = nil
+local originalWalkSpeed = 16
+local originalJumpPower = 50
+local isMinimized = false
+
+-- Create GUI Elements
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local TopBar = Instance.new("Frame")
+local TitleLabel = Instance.new("TextLabel")
+local MinimizeButton = Instance.new("TextButton")
+local CloseButton = Instance.new("TextButton")
+local ContentFrame = Instance.new("ScrollingFrame")
+local MinimizedFrame = Instance.new("Frame")
+local RestoreButton = Instance.new("TextButton")
+
+-- Mobile Control Panel
+local MobileControlPanel = Instance.new("Frame")
+local QuickActionsFrame = Instance.new("Frame")
+
+-- Setup ScreenGui with mobile optimization
+ScreenGui.Name = "StealBrainrotGUI_Mobile"
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.IgnoreGuiInset = true
+
+-- Calculate mobile-friendly sizes
+local function getMobileSize()
+    if isMobile then
+        local scale = math.min(screenSize.X / 800, screenSize.Y / 600)
+        return {
+            width = math.min(screenSize.X * 0.9, 350),
+            height = math.min(screenSize.Y * 0.8, 450),
+            scale = math.max(scale, 0.8)
+        }
+    else
+        return {
+            width = 400,
+            height = 500,
+            scale = 1
+        }
+    end
+end
+
+local mobileSize = getMobileSize()
+
+-- Main Frame Setup with mobile optimization
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Position = UDim2.new(0.5, -mobileSize.width/2, 0.5, -mobileSize.height/2)
+MainFrame.Size = UDim2.new(0, mobileSize.width, 0, mobileSize.height)
+MainFrame.Active = true
+MainFrame.ZIndex = 10
+
+-- Enhanced mobile dragging
+if not isMobile then
+    MainFrame.Draggable = true
+else
+    -- Custom touch dragging for mobile
+    local dragging = false
+    local dragStart = nil
+    local startPos = nil
+    
+    MainFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+        end
+    end)
+    
+    MainFrame.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.Touch then
+            local delta = input.Position - dragStart
+            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    
+    MainFrame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+-- Gradient Background
+local MainGradient = Instance.new("UIGradient")
+MainGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 45)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(25, 25, 40)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 25))
+}
+MainGradient.Rotation = 135
+MainGradient.Parent = MainFrame
+
+-- Shadow Effect (smaller for mobile)
+local MainShadow = Instance.new("Frame")
+MainShadow.Name = "Shadow"
+MainShadow.Parent = ScreenGui
+MainShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+MainShadow.BackgroundTransparency = 0.7
+MainShadow.BorderSizePixel = 0
+MainShadow.Position = UDim2.new(0.5, -mobileSize.width/2 + 3, 0.5, -mobileSize.height/2 + 3)
+MainShadow.Size = UDim2.new(0, mobileSize.width, 0, mobileSize.height)
+MainShadow.ZIndex = 5
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 15)
+MainCorner.Parent = MainFrame
+
+local ShadowCorner = Instance.new("UICorner")
+ShadowCorner.CornerRadius = UDim.new(0, 15)
+ShadowCorner.Parent = MainShadow
+
+-- Top Bar with mobile-friendly size
+local topBarHeight = isMobile and 45 or 50
+TopBar.Name = "TopBar"
+TopBar.Parent = MainFrame
+TopBar.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+TopBar.BorderSizePixel = 0
+TopBar.Size = UDim2.new(1, 0, 0, topBarHeight)
+TopBar.ZIndex = 15
+
+local TopBarGradient = Instance.new("UIGradient")
+TopBarGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 50, 75)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 50))
+}
+TopBarGradient.Rotation = 90
+TopBarGradient.Parent = TopBar
+
+local TopCorner = Instance.new("UICorner")
+TopCorner.CornerRadius = UDim.new(0, 15)
+TopCorner.Parent = TopBar
+
+-- Title with mobile-friendly text size
+local titleSize = isMobile and 14 or 16
+TitleLabel.Name = "TitleLabel"
+TitleLabel.Parent = TopBar
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Position = UDim2.new(0, 15, 0, 5)
+TitleLabel.Size = UDim2.new(1, -100, 0, 25)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Text = "🧠 STEAL A BRAINROT"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 100, 255)
+TitleLabel.TextSize = titleSize
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.ZIndex = 20
+TitleLabel.TextScaled = isMobile
+
+local SubTitle = Instance.new("TextLabel")
+SubTitle.Name = "SubTitle"
+SubTitle.Parent = TopBar
+SubTitle.BackgroundTransparency = 1
+SubTitle.Position = UDim2.new(0, 15, 0, 25)
+SubTitle.Size = UDim2.new(1, -100, 0, 15)
+SubTitle.Font = Enum.Font.Gotham
+SubTitle.Text = isMobile and "v1.1 • Mobile Edition" or "v1.1 • Mobile & PC Edition"
+SubTitle.TextColor3 = Color3.fromRGB(150, 150, 200)
+SubTitle.TextSize = isMobile and 8 or 10
+SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+SubTitle.ZIndex = 20
+SubTitle.TextScaled = isMobile
+
+-- Control Buttons with mobile-friendly sizes
+local buttonSize = isMobile and 35 or 30
+MinimizeButton.Name = "MinimizeButton"
+MinimizeButton.Parent = TopBar
+MinimizeButton.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
+MinimizeButton.BorderSizePixel = 0
+MinimizeButton.Position = UDim2.new(1, -buttonSize*2-10, 0, (topBarHeight-buttonSize)/2)
+MinimizeButton.Size = UDim2.new(0, buttonSize, 0, buttonSize)
+MinimizeButton.Font = Enum.Font.GothamBold
+MinimizeButton.Text = "−"
+MinimizeButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+MinimizeButton.TextSize = isMobile and 20 : 18
+MinimizeButton.ZIndex = 20
+
+local MinCorner = Instance.new("UICorner")
+MinCorner.CornerRadius = UDim.new(0, 8)
+MinCorner.Parent = MinimizeButton
+
+CloseButton.Name = "CloseButton"
+CloseButton.Parent = TopBar
+CloseButton.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+CloseButton.BorderSizePixel = 0
+CloseButton.Position = UDim2.new(1, -buttonSize-5, 0, (topBarHeight-buttonSize)/2)
+CloseButton.Size = UDim2.new(0, buttonSize, 0, buttonSize)
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Text = "✕"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextSize = isMobile and 16 or 14
+CloseButton.ZIndex = 20
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 8)
+CloseCorner.Parent = CloseButton
+
+-- Content Frame with mobile optimization
+ContentFrame.Name = "ContentFrame"
+ContentFrame.Parent = MainFrame
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.BorderSizePixel = 0
+ContentFrame.Position = UDim2.new(0, 0, 0, topBarHeight)
+ContentFrame.Size = UDim2.new(1, 0, 1, -topBarHeight)
+ContentFrame.ScrollBarThickness = isMobile and 10 or 6
+ContentFrame.ScrollBarImageColor3 = Color3.fromRGB(255, 100, 255)
+ContentFrame.ScrollBarImageTransparency = 0.3
+ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 600)
+ContentFrame.ScrollingDirection = Enum.ScrollingDirection.Y
+ContentFrame.ZIndex = 12
+
+-- Enhanced scrolling for mobile
+if isMobile then
+    ContentFrame.ScrollingEnabled = true
+    ContentFrame.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
+end
+
+-- Content Layout with mobile spacing
+local ContentLayout = Instance.new("UIListLayout")
+ContentLayout.Parent = ContentFrame
+ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ContentLayout.Padding = UDim.new(0, isMobile and 8 or 10)
+ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local ContentPadding = Instance.new("UIPadding")
+ContentPadding.Parent = ContentFrame
+ContentPadding.PaddingTop = UDim.new(0, 10)
+ContentPadding.PaddingBottom = UDim.new(0, 10)
+ContentPadding.PaddingLeft = UDim.new(0, 10)
+ContentPadding.PaddingRight = UDim.new(0, isMobile and 15 or 20)
+
+-- Mobile-optimized Section Creation Function
+local function createSection(name, title, icon, layoutOrder, height)
+    local section = Instance.new("Frame")
+    section.Name = name
+    section.Parent = ContentFrame
+    section.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    section.BorderSizePixel = 0
+    section.Size = UDim2.new(1, -5, 0, isMobile and (height * 0.9) or height)
+    section.LayoutOrder = layoutOrder
+    section.ZIndex = 13
+    
+    local sectionGradient = Instance.new("UIGradient")
+    sectionGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 65)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 25, 45))
+    }
+    sectionGradient.Rotation = 45
+    sectionGradient.Parent = section
+    
+    local sectionCorner = Instance.new("UICorner")
+    sectionCorner.CornerRadius = UDim.new(0, 10)
+    sectionCorner.Parent = section
+    
+    local sectionBorder = Instance.new("UIStroke")
+    sectionBorder.Color = Color3.fromRGB(255, 100, 255)
+    sectionBorder.Thickness = 1
+    sectionBorder.Transparency = 0.7
+    sectionBorder.Parent = section
+    
+    local sectionTitle = Instance.new("TextLabel")
+    sectionTitle.Name = "Title"
+    sectionTitle.Parent = section
+    sectionTitle.BackgroundTransparency = 1
+    sectionTitle.Position = UDim2.new(0, 10, 0, 5)
+    sectionTitle.Size = UDim2.new(1, -20, 0, 20)
+    sectionTitle.Font = Enum.Font.GothamBold
+    sectionTitle.Text = icon .. " " .. title
+    sectionTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    sectionTitle.TextSize = isMobile and 12 or 14
+    sectionTitle.TextXAlignment = Enum.TextXAlignment.Left
+    sectionTitle.ZIndex = 15
+    sectionTitle.TextScaled = isMobile
+    
+    local sectionGrid = Instance.new("Frame")
+    sectionGrid.Name = "Grid"
+    sectionGrid.Parent = section
+    sectionGrid.BackgroundTransparency = 1
+    sectionGrid.Position = UDim2.new(0, 8, 0, 28)
+    sectionGrid.Size = UDim2.new(1, -16, 1, -35)
+    sectionGrid.ZIndex = 14
+    
+    local gridLayout = Instance.new("UIGridLayout")
+    gridLayout.Parent = sectionGrid
+    
+    -- Mobile-optimized grid layout
+    if isMobile then
+        gridLayout.CellSize = UDim2.new(0, (mobileSize.width - 40) / 2, 0, 35)
+        gridLayout.CellPadding = UDim2.new(0, 5, 0, 5)
+    else
+        gridLayout.CellSize = UDim2.new(0, 120, 0, 30)
+        gridLayout.CellPadding = UDim2.new(0, 8, 0, 6)
+    end
+    
+    gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+    
+    return section, sectionGrid
+end
+
+-- Mobile-optimized Button Creation Function
+local function createButton(name, parent, text, color, layoutOrder)
+    local button = Instance.new("TextButton")
+    button.Name = name
+    button.Parent = parent
+    button.BackgroundColor3 = color
+    button.BorderSizePixel = 0
+    button.Font = Enum.Font.GothamSemibold
+    button.Text = text
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextSize = isMobile and 9 or 10
+    button.TextWrapped = true
+    button.TextScaled = isMobile
+    button.LayoutOrder = layoutOrder
+    button.ZIndex = 16
+    
+    local buttonCorner = Instance.new("UICorner")
+    buttonCorner.CornerRadius = UDim.new(0, 6)
+    buttonCorner.Parent = button
+    
+    local buttonGradient = Instance.new("UIGradient")
+    buttonGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.new(color.R * 1.2, color.G * 1.2, color.B * 1.2)),
+        ColorSequenceKeypoint.new(1, color)
+    }
+    buttonGradient.Rotation = 90
+    buttonGradient.Parent = button
+    
+    -- Enhanced mobile touch feedback
+    local function onButtonPress()
+        local pressTween = TweenService:Create(button, TweenInfo.new(0.1), {
+            Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset - 2, button.Size.Y.Scale, button.Size.Y.Offset - 2),
+            BackgroundColor3 = Color3.new(color.R * 0.8, color.G * 0.8, color.B * 0.8)
+        })
+        pressTween:Play()
+    end
+    
+    local function onButtonRelease()
+        local releaseTween = TweenService:Create(button, TweenInfo.new(0.1), {
+            Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset + 2, button.Size.Y.Scale, button.Size.Y.Offset + 2),
+            BackgroundColor3 = color
+        })
+        releaseTween:Play()
+    end
+    
+    if isMobile then
+        button.TouchTap:Connect(function()
+            onButtonPress()
+            wait(0.1)
+            onButtonRelease()
+        end)
+    else
+        button.MouseButton1Down:Connect(onButtonPress)
+        button.MouseButton1Up:Connect(onButtonRelease)
+        button.MouseLeave:Connect(onButtonRelease)
+    end
+    
+    return button
+end
+
+-- Create Sections with mobile-friendly heights
+local farmSection, farmGrid = createSection("FarmSection", "AUTO FARMING", "🤖", 1, isMobile and 70 or 80)
+local playerSection, playerGrid = createSection("PlayerSection", "PLAYER TOOLS", "👤", 2, isMobile and 70 or 80)
+local teleportSection, teleportGrid = createSection("TeleportSection", "TELEPORTATION", "🚀", 3, isMobile and 70 or 80)
+local miscSection, miscGrid = createSection("MiscSection", "MISCELLANEOUS", "⚙️", 4, isMobile and 70 or 80)
+local statusSection, statusGrid = createSection("StatusSection", "STATUS", "📊", 5, isMobile and 50 or 60)
+
+-- Create Mobile Quick Actions Panel
+if isMobile then
+    MobileControlPanel.Name = "MobileControlPanel"
+    MobileControlPanel.Parent = ScreenGui
+    MobileControlPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    MobileControlPanel.BorderSizePixel = 0
+    MobileControlPanel.Position = UDim2.new(0, 10, 1, -60)
+    MobileControlPanel.Size = UDim2.new(1, -20, 0, 50)
+    MobileControlPanel.ZIndex = 25
+    
+    local controlCorner = Instance.new("UICorner")
+    controlCorner.CornerRadius = UDim.new(0, 10)
+    controlCorner.Parent = MobileControlPanel
+    
+    local controlGradient = Instance.new("UIGradient")
+    controlGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 45)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 35))
+    }
+    controlGradient.Parent = MobileControlPanel
+    
+    QuickActionsFrame.Name = "QuickActionsFrame"
+    QuickActionsFrame.Parent = MobileControlPanel
+    QuickActionsFrame.BackgroundTransparency = 1
+    QuickActionsFrame.Size = UDim2.new(1, 0, 1, 0)
+    QuickActionsFrame.ZIndex = 26
+    
+    local quickLayout = Instance.new("UIListLayout")
+    quickLayout.Parent = QuickActionsFrame
+    quickLayout.FillDirection = Enum.FillDirection.Horizontal
+    quickLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    quickLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    quickLayout.Padding = UDim.new(0, 10)
+    
+    -- Quick action buttons for mobile
+    local function createQuickButton(text, color, callback)
+        local quickBtn = Instance.new("TextButton")
+        quickBtn.Parent = QuickActionsFrame
+        quickBtn.BackgroundColor3 = color
+        quickBtn.BorderSizePixel = 0
+        quickBtn.Size = UDim2.new(0, 60, 0, 35)
+        quickBtn.Font = Enum.Font.GothamBold
+        quickBtn.Text = text
+        quickBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        quickBtn.TextSize = 10
+        quickBtn.TextScaled = true
+        quickBtn.ZIndex = 27
+        
+        local quickCorner = Instance.new("UICorner")
+        quickCorner.CornerRadius = UDim.new(0, 8)
+        quickCorner.Parent = quickBtn
+        
+        quickBtn.TouchTap:Connect(callback)
+        return quickBtn
+    end
+end
+
+-- Create Buttons
+local autoCollectBtn = createButton("AutoCollect", farmGrid, "🧠 Auto Collect: OFF", Color3.fromRGB(138, 43, 226), 1)
+local autoSellBtn = createButton("AutoSell", farmGrid, "💰 Auto Sell: OFF", Color3.fromRGB(40, 167, 69), 2)
+local collectAllBtn = createButton("CollectAll", farmGrid, "🔥 Collect All", Color3.fromRGB(255, 165, 0), 3)
+
+local speedBoostBtn = createButton("SpeedBoost", playerGrid, "⚡ Speed: OFF", Color3.fromRGB(0, 191, 255), 1)
+local jumpBoostBtn = createButton("JumpBoost", playerGrid, "🦘 Jump: OFF", Color3.fromRGB(255, 20, 147), 2)
+local invisibleBtn = createButton("Invisible", playerGrid, "👻 Invisible", Color3.fromRGB(128, 128, 128), 3)
+
+local tpToSpawnBtn = createButton("TpToSpawn", teleportGrid, "🏠 Spawn", Color3.fromRGB(34, 139, 34), 1)
+local tpToShopBtn = createButton("TpToShop", teleportGrid, "🛒 Shop", Color3.fromRGB(255, 69, 0), 2)
+local tpToPlayerBtn = createButton("TpToPlayer", teleportGrid, "👥 Player", Color3.fromRGB(75, 0, 130), 3)
+
+local antiAFKBtn = createButton("AntiAFK", miscGrid, "😴 AFK: OFF", Color3.fromRGB(220, 20, 60), 1)
+local rejoinBtn = createButton("Rejoin", miscGrid, "🔄 Rejoin", Color3.fromRGB(105, 105, 105), 2)
+local serverHopBtn = createButton("ServerHop", miscGrid, "🌐 Hop", Color3.fromRGB(70, 130, 180), 3)
+
+-- Status Display
+statusGrid:FindFirstChild("UIGridLayout"):Destroy()
+
+local statusLayout = Instance.new("UIListLayout")
+statusLayout.Parent = statusGrid
+statusLayout.SortOrder = Enum.SortOrder.LayoutOrder
+statusLayout.Padding = UDim.new(0, 3)
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Name = "StatusLabel"
+statusLabel.Parent = statusGrid
+statusLabel.BackgroundColor3 = Color3.fromRGB(45, 45, 70)
+statusLabel.BorderSizePixel = 0
+statusLabel.Size = UDim2.new(1, 0, 0, isMobile and 20 or 25)
+statusLabel.Font = Enum.Font.GothamSemibold
+statusLabel.Text = "🧠 Ready to steal some brainrot!"
+statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+statusLabel.TextSize = isMobile and 9 or 11
+statusLabel.TextScaled = isMobile
+statusLabel.TextXAlignment = Enum.TextXAlignment.Center
+statusLabel.LayoutOrder = 1
+statusLabel.ZIndex = 16
+
+local statusCorner = Instance.new("UICorner")
+statusCorner.CornerRadius = UDim.new(0, 6)
+statusCorner.Parent = statusLabel
+
+-- Minimized Frame with mobile optimization
+MinimizedFrame.Name = "MinimizedFrame"
+MinimizedFrame.Parent = ScreenGui
+MinimizedFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+MinimizedFrame.BorderSizePixel = 0
+MinimizedFrame.Position = UDim2.new(0, 10, 0, 100)
+MinimizedFrame.Size = UDim2.new(0, isMobile and 120 or 160, 0, isMobile and 35 or 40)
+MinimizedFrame.Visible = false
+MinimizedFrame.Active = true
+MinimizedFrame.ZIndex = 20
+
+if not isMobile then
+    MinimizedFrame.Draggable = true
+end
+
+local minFrameCorner = Instance.new("UICorner")
+minFrameCorner.CornerRadius = UDim.new(0, 10)
+minFrameCorner.Parent = MinimizedFrame
+
+RestoreButton.Name = "RestoreButton"
+RestoreButton.Parent = MinimizedFrame
+RestoreButton.BackgroundTransparency = 1
+RestoreButton.Size = UDim2.new(1, 0, 1, 0)
+RestoreButton.Font = Enum.Font.GothamSemibold
+RestoreButton.Text = "🧠 Brainrot GUI"
+RestoreButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+RestoreButton.TextSize = isMobile and 9 or 11
+RestoreButton.TextScaled = isMobile
+RestoreButton.ZIndex = 21
+
+-- Animation Functions (mobile optimized)
+local function smoothMinimize()
+    isMinimized = true
+    
+    local minimizeTween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+        Size = UDim2.new(0, 0, 0, 0),
+        Position = UDim2.new(0.5, 0, 0.5, 0)
+    })
+    
+    local shadowTween = TweenService:Create(MainShadow, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+        Size = UDim2.new(0, 0, 0, 0),
+        BackgroundTransparency = 1
+    })
+    
+    minimizeTween:Play()
+    shadowTween:Play()
+    
+    minimizeTween.Completed:Connect(function()
+        MainFrame.Visible = false
+        MainShadow.Visible = false
+        MinimizedFrame.Visible = true
+        
+        if isMobile and MobileControlPanel then
+            MobileControlPanel.Visible = false
+        end
+    end)
+end
+
+local function smoothRestore()
+    isMinimized = false
+    
+    MinimizedFrame.Visible = false
+    MainFrame.Visible = true
+    MainShadow.Visible = true
+    
+    if isMobile and MobileControlPanel then
+        MobileControlPanel.Visible = true
+    end
+    
+    MainFrame.Size = UDim2.new(0, 0, 0, 0)
+    MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    MainShadow.Size = UDim2.new(0, 0, 0, 0)
+    MainShadow.BackgroundTransparency = 1
+    
+    local restoreTween = TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back), {
+        Size = UDim2.new(0, mobileSize.width, 0, mobileSize.height),
+        Position = UDim2.new(0.5, -mobileSize.width/2, 0.5, -mobileSize.height/2)
+    })
+    
+    local shadowRestoreTween = TweenService:Create(MainShadow, TweenInfo.new(0.4, Enum.EasingStyle.Back), {
+        Size = UDim2.new(0, mobileSize.width, 0, mobileSize.height),
+        BackgroundTransparency = 0.7
+    })
+    
+    restoreTween:Play()
+    shadowRestoreTween:Play()
+end
+
+-- Helper Functions
+local function updateStatus(text, color)
+    statusLabel.Text = text
+    statusLabel.TextColor3 = color or Color3.fromRGB(100, 255, 100)
+end
+
+local function safeCall(func, errorMsg)
+    local success, result = pcall(func)
+    if not success then
+        warn("Error in " .. (errorMsg or "function") .. ": " .. tostring(result))
+        updateStatus("❌ Error: " .. (errorMsg or "Unknown"), Color3.fromRGB(255, 100, 100))
+        return false
+    end
+    return true
+end
+
+-- Game Functions (same as before but with mobile notifications)
+local function findBrainrotItems()
+    local items = {}
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj.Name:lower():find("brainrot") or obj.Name:lower():find("brain") or 
+           obj.Name:lower():find("item") or obj.Name:lower():find("collect") then
+            if obj:IsA("Part") or obj:IsA("MeshPart") then
+                table.insert(items, obj)
+            end
+        end
+    end
+    return items
+end
+
+local function collectItem(item)
+    if item and item.Parent then
+        local distance = (RootPart.Position - item.Position).Magnitude
+        if distance < 50 then
+            if item:FindFirstChild("ClickDetector") then
+                fireclickdetector(item.ClickDetector)
+            elseif item:FindFirstChild("ProximityPrompt") then
+                fireproximityprompt(item.ProximityPrompt)
+            else
+                RootPart.CFrame = CFrame.new(item.Position)
+                wait(0.1)
+            end
+        else
+            RootPart.CFrame = CFrame.new(item.Position)
+            wait(0.2)
+            if item:FindFirstChild("ClickDetector") then
+                fireclickdetector(item.ClickDetector)
+            end
+        end
+    end
+end
+
+local function autoCollectLoop()
+    while autoCollectEnabled do
+        safeCall(function()
+            local items = findBrainrotItems()
+            for _, item in pairs(items) do
+                if not autoCollectEnabled then break end
+                collectItem(item)
+                wait(0.1)
+            end
+        end, "autoCollect")
+        wait(1)
+    end
+end
+
+local function findShop()
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj.Name:lower():find("shop") or obj.Name:lower():find("sell") or obj.Name:lower():find("store") then
+            if obj:IsA("Part") or obj:IsA("MeshPart") then
+                return obj
+            end
+        end
+    end
+    return nil
+end
+
+local function autoSellLoop()
+    while autoSellEnabled do
+        safeCall(function()
+            local shop = findShop()
+            if shop then
+                local distance = (RootPart.Position - shop.Position).Magnitude
+                if distance > 10 then
+                    RootPart.CFrame = CFrame.new(shop.Position)
+                    wait(0.5)
+                end
+                
+                if shop:FindFirstChild("ClickDetector") then
+                    fireclickdetector(shop.ClickDetector)
+                elseif shop:FindFirstChild("ProximityPrompt") then
+                    fireproximityprompt(shop.ProximityPrompt)
+                end
+            end
+        end, "autoSell")
+        wait(2)
+    end
+end
+
+-- Event Connections
+MinimizeButton.MouseButton1Click:Connect(smoothMinimize)
+if isMobile then
+    MinimizeButton.TouchTap:Connect(smoothMinimize)
+end
+
+RestoreButton.MouseButton1Click:Connect(smoothRestore)
+if isMobile then
+    RestoreButton.TouchTap:Connect(smoothRestore)
+end
+
+CloseButton.MouseButton1Click:Connect(function()
+    local closeTween = TweenService:Create(MainFrame, TweenInfo.new(0.3), {
+        Size = UDim2.new(0, 0, 0, 0),
+        Position = UDim2.new(0.5, 0, 0.5, 0)
+    })
+    closeTween:Play()
+    
+    closeTween.Completed:Connect(function()
+        ScreenGui:Destroy()
+    end)
+end)
+
+if isMobile then
+    CloseButton.TouchTap:Connect(function()
+        local closeTween = TweenService:Create(MainFrame, TweenInfo.new(0.3), {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0)
+        })
+        closeTween:Play()
+        
+        closeTween.Completed:Connect(function()
+            ScreenGui:Destroy()
+        end)
+    end)
+end
+
+-- Button Events with mobile support
+local function setupButtonEvents(button, callback)
+    button.MouseButton1Click:Connect(callback)
+    if isMobile then
+        button.TouchTap:Connect(callback)
+    end
+end
+
+setupButtonEvents(autoCollectBtn, function()
+    autoCollectEnabled = not autoCollectEnabled
+    if autoCollectEnabled then
+        autoCollectBtn.Text = isMobile and "🧠 Collect: ON" or "🧠 Auto Collect: ON"
+        autoCollectBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+        updateStatus("🤖 Auto collect started!", Color3.fromRGB(100, 255, 100))
+        spawn(autoCollectLoop)
+    else
+        autoCollectBtn.Text = isMobile and "🧠 Collect: OFF" or "🧠 Auto Collect: OFF"
+        autoCollectBtn.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+        updateStatus("⏹️ Auto collect stopped", Color3.fromRGB(255, 255, 100))
+    end
+end)
+
+setupButtonEvents(autoSellBtn, function()
+    autoSellEnabled = not autoSellEnabled
+    if autoSellEnabled then
+        autoSellBtn.Text = isMobile and "💰 Sell: ON" or "💰 Auto Sell: ON"
+        autoSellBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+        updateStatus("💰 Auto sell started!", Color3.fromRGB(100, 255, 100))
+        spawn(autoSellLoop)
+    else
+        autoSellBtn.Text = isMobile and "💰 Sell: OFF" or "💰 Auto Sell: OFF"
+        autoSellBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+        updateStatus("⏹️ Auto sell stopped", Color3.fromRGB(255, 255, 100))
+    end
+end)
+
+setupButtonEvents(collectAllBtn, function()
+    safeCall(function()
+        updateStatus("🔥 Collecting all items...", Color3.fromRGB(255, 165, 0))
+        local items = findBrainrotItems()
+        for _, item in pairs(items) do
+            collectItem(item)
+            wait(0.05)
+        end
+        updateStatus("✅ All items collected!", Color3.fromRGB(100, 255, 100))
+    end, "collectAll")
+end)
+
+setupButtonEvents(speedBoostBtn, function()
+    speedBoostEnabled = not speedBoostEnabled
+    if speedBoostEnabled then
+        speedBoostBtn.Text = isMobile and "⚡ Speed: ON" or "⚡ Speed Boost: ON"
+        speedBoostBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+        Humanoid.WalkSpeed = 100
+        updateStatus("⚡ Speed boost activated!", Color3.fromRGB(100, 255, 100))
+    else
+        speedBoostBtn.Text = isMobile and "⚡ Speed: OFF" or "⚡ Speed Boost: OFF"
+        speedBoostBtn.BackgroundColor3 = Color3.fromRGB(0, 191, 255)
+        Humanoid.WalkSpeed = originalWalkSpeed
+        updateStatus("⚡ Speed boost deactivated", Color3.fromRGB(255, 255, 100))
+    end
+end)
+
+setupButtonEvents(jumpBoostBtn, function()
+    jumpBoostEnabled = not jumpBoostEnabled
+    if jumpBoostEnabled then
+        jumpBoostBtn.Text = isMobile and "🦘 Jump: ON" or "🦘 Jump Boost: ON"
+        jumpBoostBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+        Humanoid.JumpPower = 150
+        updateStatus("🦘 Jump boost activated!", Color3.fromRGB(100, 255, 100))
+    else
+        jumpBoostBtn.Text = isMobile and "🦘 Jump: OFF" or "🦘 Jump Boost: OFF"
+        jumpBoostBtn.BackgroundColor3 = Color3.fromRGB(255, 20, 147)
+        Humanoid.JumpPower = originalJumpPower
+        updateStatus("🦘 Jump boost deactivated", Color3.fromRGB(255, 255, 100))
+    end
+end)
+
+-- Add mobile quick actions if on mobile
+if isMobile then
+    createQuickButton("🧠", Color3.fromRGB(138, 43, 226), function()
+        autoCollectBtn.MouseButton1Click()
+    end)
+    
+    createQuickButton("⚡", Color3.fromRGB(0, 191, 255), function()
+        speedBoostBtn.MouseButton1Click()
+    end)
+    
+    createQuickButton("🔥", Color3.fromRGB(255, 165, 0), function()
+        collectAllBtn.MouseButton1Click()
+    end)
+    
+    createQuickButton("🏠", Color3.fromRGB(34, 139, 34), function()
+        tpToSpawnBtn.MouseButton1Click()
+    end)
+end
+
+-- Continue with other button events...
+setupButtonEvents(invisibleBtn, function()
+    safeCall(function()
+        for _, part in pairs(Character:GetChildren()) do
+            if part:IsA("BasePart") and part ~= RootPart then
+                part.Transparency = part.Transparency == 0 and 1 or 0
+            elseif part:IsA("Accessory") then
+                part.Handle.Transparency = part.Handle.Transparency == 0 and 1 or 0
+            end
+        end
+        updateStatus("👻 Invisibility toggled!", Color3.fromRGB(128, 128, 128))
+    end, "invisible")
+end)
+
+setupButtonEvents(tpToSpawnBtn, function()
+    safeCall(function()
+        local spawn = Workspace:FindFirstChild("SpawnLocation") or Workspace:FindFirstChild("Spawn")
+        if spawn then
+            RootPart.CFrame = CFrame.new(spawn.Position + Vector3.new(0, 5, 0))
+            updateStatus("🏠 Teleported to spawn!", Color3.fromRGB(34, 139, 34))
+        else
+            RootPart.CFrame = CFrame.new(0, 50, 0)
+            updateStatus("🏠 Teleported to origin!", Color3.fromRGB(34, 139, 34))
+        end
+    end, "tpToSpawn")
+end)
+
+setupButtonEvents(tpToShopBtn, function()
+    safeCall(function()
+        local shop = findShop()
+        if shop then
+            RootPart.CFrame = CFrame.new(shop.Position + Vector3.new(0, 5, 0))
+            updateStatus("🛒 Teleported to shop!", Color3.fromRGB(255, 69, 0))
+        else
+            updateStatus("❌ Shop not found!", Color3.fromRGB(255, 100, 100))
+        end
+    end, "tpToShop")
+end)
+
+setupButtonEvents(antiAFKBtn, function()
+    antiAFKEnabled = not antiAFKEnabled
+    if antiAFKEnabled then
+        antiAFKBtn.Text = isMobile and "😴 AFK: ON" or "😴 Anti AFK: ON"
+        antiAFKBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+        updateStatus("😴 Anti AFK activated!", Color3.fromRGB(100, 255, 100))
+        
+        spawn(function()
+            while antiAFKEnabled do
+                wait(60)
+                if antiAFKEnabled then
+                    local currentPos = RootPart.Position
+                    RootPart.CFrame = RootPart.CFrame + Vector3.new(0, 1, 0)
+                    wait(0.1)
+                    RootPart.CFrame = CFrame.new(currentPos)
+                end
+            end
+        end)
+    else
+        antiAFKBtn.Text = isMobile and "😴 AFK: OFF" or "😴 Anti AFK: OFF"
+        antiAFKBtn.BackgroundColor3 = Color3.fromRGB(220, 20, 60)
+        updateStatus("😴 Anti AFK deactivated", Color3.fromRGB(255, 255, 100))
+    end
+end)
+
+setupButtonEvents(rejoinBtn, function()
+    updateStatus("🔄 Rejoining game...", Color3.fromRGB(105, 105, 105))
+    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+end)
+
+setupButtonEvents(serverHopBtn, function()
+    updateStatus("🌐 Server hopping...", Color3.fromRGB(70, 130, 180))
+    local servers = {}
+    local req = game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100")
+    local body = game:GetService("HttpService"):JSONDecode(req)
+    
+    for i, v in pairs(body.data) do
+        if v.playing ~= v.maxPlayers and v.id ~= game.JobId then
+            table.insert(servers, v.id)
+        end
+    end
+    
+    if #servers > 0 then
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, servers[math.random(1, #servers)], LocalPlayer)
+    end
+end)
+
+-- Character respawn handling
+LocalPlayer.CharacterAdded:Connect(function(newCharacter)
+    Character = newCharacter
+    Humanoid = Character:WaitForChild("Humanoid")
+    RootPart = Character:WaitForChild("HumanoidRootPart")
+    
+    -- Reapply boosts if they were enabled
+    if speedBoostEnabled then
+        Humanoid.WalkSpeed = 100
+    end
+    if jumpBoostEnabled then
+        Humanoid.JumpPower = 150
+    end
+end)
+
+-- Mobile-specific keyboard shortcuts (for devices with keyboards)
+if not isMobile then
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        
+        if input.KeyCode == Enum.KeyCode.F then
+            autoCollectBtn.MouseButton1Click()
+        elseif input.KeyCode == Enum.KeyCode.G then
+            collectAllBtn.MouseButton1Click()
+        elseif input.KeyCode == Enum.KeyCode.H then
+            speedBoostBtn.MouseButton1Click()
+        elseif input.KeyCode == Enum.KeyCode.M then
+            if isMinimized then
+                smoothRestore()
+            else
+                smoothMinimize()
+            end
+        end
+    end)
+end
+
+-- Screen orientation change handling for mobile
+if isMobile then
+    workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+        screenSize = workspace.CurrentCamera.ViewportSize
+        mobileSize = getMobileSize()
+        
+        -- Update main frame size and position
+        MainFrame.Size = UDim2.new(0, mobileSize.width, 0, mobileSize.height)
+        MainFrame.Position = UDim2.new(0.5, -mobileSize.width/2, 0.5, -mobileSize.height/2)
+        MainShadow.Size = UDim2.new(0, mobileSize.width, 0, mobileSize.height)
+        MainShadow.Position = UDim2.new(0.5, -mobileSize.width/2 + 3, 0.5, -mobileSize.height/2 + 3)
+        
+        -- Update mobile control panel position
+        if MobileControlPanel then
+            MobileControlPanel.Position = UDim2.new(0, 10, 1, -60)
+            MobileControlPanel.Size = UDim2.new(1, -20, 0, 50)
+        end
+    end)
+end
+
+-- Initialize
+spawn(function()
+    wait(2)
+    updateStatus(isMobile and "📱 Mobile GUI ready!" or "🧠 Brainrot GUI loaded!", Color3.fromRGB(255, 100, 255))
+    wait(3)
+    updateStatus("🚀 Ready to dominate!", Color3.fromRGB(100, 255, 100))
+end)
+
+print("🧠 STEAL A BRAINROT GUI v1.1 - MOBILE OPTIMIZED!")
+print("=" .. string.rep("=", 50))
+print("📱 MOBILE FEATURES:")
+print("   ✅ Touch-Friendly Interface")
+print("   ✅ Responsive Design")
+print("   ✅ Quick Action Panel")
+print("   ✅ Optimized Button Sizes")
+print("   ✅ Mobile Drag Support")
+print("   ✅ Screen Rotation Support")
+print("")
+print("🎮 PLATFORM: " .. (isMobile and "MOBILE" or "PC"))
+print("📏 SCREEN SIZE: " .. screenSize.X .. "x" .. screenSize.Y)
+print("🔧 GUI SIZE: " .. mobileSize.width .. "x" .. mobileSize.height)
+print("")
+if isMobile then
+    print("📱 MOBILE CONTROLS:")
+    print("   🧠 - Toggle Auto Collect")
+    print("   ⚡ - Toggle Speed Boost")
+    print("   🔥 - Collect All Items")
+    print("   🏠 - Teleport to Spawn")
+else
+    print("⌨️ KEYBOARD SHORTCUTS:")
+    print("   F - Toggle Auto Collect")
+    print("   G - Collect All Items")
+    print("   H - Toggle Speed Boost")
+    print("   M - Toggle Minimize")
+end
+print("")
+print("🚀 READY FOR MOBILE BRAINROT DOMINATION!")
+print("=" .. string.rep("=", 50))
