@@ -1,0 +1,554 @@
+-- Dessert War ESP & Auto Aim Script
+-- Version: 1.0 - Focused Edition
+-- Features: ESP Enemy Detection, Auto Aim, Simple Controls
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
+
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+
+-- Variables
+local espEnabled = false
+local autoAimEnabled = false
+local espObjects = {}
+local currentTarget = nil
+local aimSmoothness = 0.2
+local maxAimDistance = 500
+local espUpdateConnection = nil
+local aimUpdateConnection = nil
+
+-- Mobile Detection
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+-- Create GUI
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local TitleLabel = Instance.new("TextLabel")
+local ESPButton = Instance.new("TextButton")
+local AimButton = Instance.new("TextButton")
+local StatusLabel = Instance.new("TextLabel")
+local SettingsFrame = Instance.new("Frame")
+
+-- Setup ScreenGui
+ScreenGui.Name = "DessertWarESP"
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Calculate sizes for mobile/PC
+local function getOptimalSize()
+    local screenSize = Camera.ViewportSize
+    if isMobile then
+        return {
+            width = math.min(screenSize.X * 0.8, 280),
+            height = 160,
+            buttonHeight = 35,
+            fontSize = 12
+        }
+    else
+        return {
+            width = 250,
+            height = 140,
+            buttonHeight = 30,
+            fontSize = 11
+        }
+    end
+end
+
+local sizes = getOptimalSize()
+
+-- Main Frame
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.Position = UDim2.new(0, 20, 0, 100)
+MainFrame.Size = UDim2.new(0, sizes.width, 0, sizes.height)
+MainFrame.Active = true
+MainFrame.Draggable = not isMobile
+MainFrame.ZIndex = 10
+
+-- Gradient Background
+local MainGradient = Instance.new("UIGradient")
+MainGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 50)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 30))
+}
+MainGradient.Rotation = 45
+MainGradient.Parent = MainFrame
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = MainFrame
+
+-- Border
+local MainBorder = Instance.new("UIStroke")
+MainBorder.Color = Color3.fromRGB(255, 100, 100)
+MainBorder.Thickness = 2
+MainBorder.Parent = MainFrame
+
+-- Title
+TitleLabel.Name = "TitleLabel"
+TitleLabel.Parent = MainFrame
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Position = UDim2.new(0, 10, 0, 5)
+TitleLabel.Size = UDim2.new(1, -20, 0, 25)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Text = "🍰 DESSERT WAR"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+TitleLabel.TextSize = sizes.fontSize + 2
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Center
+TitleLabel.ZIndex = 15
+
+-- ESP Button
+ESPButton.Name = "ESPButton"
+ESPButton.Parent = MainFrame
+ESPButton.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+ESPButton.BorderSizePixel = 0
+ESPButton.Position = UDim2.new(0, 10, 0, 35)
+ESPButton.Size = UDim2.new(1, -20, 0, sizes.buttonHeight)
+ESPButton.Font = Enum.Font.GothamSemibold
+ESPButton.Text = "👁️ ESP Enemy: OFF"
+ESPButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ESPButton.TextSize = sizes.fontSize
+ESPButton.ZIndex = 15
+
+local ESPCorner = Instance.new("UICorner")
+ESPCorner.CornerRadius = UDim.new(0, 8)
+ESPCorner.Parent = ESPButton
+
+-- Auto Aim Button
+AimButton.Name = "AimButton"
+AimButton.Parent = MainFrame
+AimButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+AimButton.BorderSizePixel = 0
+AimButton.Position = UDim2.new(0, 10, 0, 75)
+AimButton.Size = UDim2.new(1, -20, 0, sizes.buttonHeight)
+AimButton.Font = Enum.Font.GothamSemibold
+AimButton.Text = "🎯 Auto Aim: OFF"
+AimButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+AimButton.TextSize = sizes.fontSize
+AimButton.ZIndex = 15
+
+local AimCorner = Instance.new("UICorner")
+AimCorner.CornerRadius = UDim.new(0, 8)
+AimCorner.Parent = AimButton
+
+-- Status Label
+StatusLabel.Name = "StatusLabel"
+StatusLabel.Parent = MainFrame
+StatusLabel.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+StatusLabel.BorderSizePixel = 0
+StatusLabel.Position = UDim2.new(0, 10, 0, 115)
+StatusLabel.Size = UDim2.new(1, -20, 0, 20)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.Text = "🎮 Ready for battle!"
+StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+StatusLabel.TextSize = sizes.fontSize - 1
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Center
+StatusLabel.ZIndex = 15
+
+local StatusCorner = Instance.new("UICorner")
+StatusCorner.CornerRadius = UDim.new(0, 6)
+StatusCorner.Parent = StatusLabel
+
+-- Mobile drag support
+if isMobile then
+    local dragging = false
+    local dragStart = nil
+    local startPos = nil
+    
+    MainFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+        end
+    end)
+    
+    MainFrame.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.Touch then
+            local delta = input.Position - dragStart
+            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    
+    MainFrame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+-- Helper Functions
+local function updateStatus(text, color)
+    StatusLabel.Text = text
+    StatusLabel.TextColor3 = color or Color3.fromRGB(100, 255, 100)
+end
+
+local function isEnemy(player)
+    if not player or player == LocalPlayer then
+        return false
+    end
+    
+    -- Check if player has character and is alive
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    
+    -- Basic enemy detection - you can customize this based on game mechanics
+    -- For most games, anyone who isn't you is potentially an enemy
+    return true
+end
+
+local function getPlayerDistance(player)
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return math.huge
+    end
+    
+    local localChar = LocalPlayer.Character
+    if not localChar or not localChar:FindFirstChild("HumanoidRootPart") then
+        return math.huge
+    end
+    
+    return (localChar.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+end
+
+local function createESP(player)
+    if not player.Character then return end
+    
+    local character = player.Character
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChild("Humanoid")
+    
+    if not humanoidRootPart or not humanoid then return end
+    
+    -- Create ESP Box
+    local espBox = Instance.new("BoxHandleAdornment")
+    espBox.Name = "ESPBox"
+    espBox.Parent = humanoidRootPart
+    espBox.Size = Vector3.new(4, 6, 1)
+    espBox.Color3 = Color3.fromRGB(255, 0, 0)
+    espBox.Transparency = 0.7
+    espBox.AlwaysOnTop = true
+    espBox.ZIndex = 10
+    
+    -- Create ESP Text
+    local espGui = Instance.new("BillboardGui")
+    espGui.Name = "ESPGui"
+    espGui.Parent = humanoidRootPart
+    espGui.Size = UDim2.new(0, 200, 0, 50)
+    espGui.StudsOffset = Vector3.new(0, 3, 0)
+    espGui.AlwaysOnTop = true
+    
+    local espText = Instance.new("TextLabel")
+    espText.Parent = espGui
+    espText.BackgroundTransparency = 1
+    espText.Size = UDim2.new(1, 0, 1, 0)
+    espText.Font = Enum.Font.GothamBold
+    espText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    espText.TextSize = 14
+    espText.TextStrokeTransparency = 0
+    espText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    
+    -- Create distance text
+    local distanceText = Instance.new("TextLabel")
+    distanceText.Parent = espGui
+    distanceText.BackgroundTransparency = 1
+    distanceText.Position = UDim2.new(0, 0, 0.6, 0)
+    distanceText.Size = UDim2.new(1, 0, 0.4, 0)
+    distanceText.Font = Enum.Font.Gotham
+    distanceText.TextColor3 = Color3.fromRGB(255, 255, 0)
+    distanceText.TextSize = 12
+    distanceText.TextStrokeTransparency = 0
+    distanceText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    
+    -- Store ESP objects
+    espObjects[player] = {
+        box = espBox,
+        gui = espGui,
+        text = espText,
+        distance = distanceText
+    }
+    
+    -- Update ESP info
+    local function updateESP()
+        if espObjects[player] and player.Character and humanoidRootPart.Parent then
+            local distance = getPlayerDistance(player)
+            espText.Text = player.Name
+            distanceText.Text = math.floor(distance) .. "m"
+            
+            -- Color based on distance
+            if distance < 50 then
+                espBox.Color3 = Color3.fromRGB(255, 0, 0) -- Red - Very close
+            elseif distance < 100 then
+                espBox.Color3 = Color3.fromRGB(255, 165, 0) -- Orange - Close
+            else
+                espBox.Color3 = Color3.fromRGB(255, 255, 0) -- Yellow - Far
+            end
+        end
+    end
+    
+    -- Connect update function
+    local connection
+    connection = RunService.Heartbeat:Connect(function()
+        if espEnabled and espObjects[player] then
+            updateESP()
+        else
+            connection:Disconnect()
+        end
+    end)
+end
+
+local function removeESP(player)
+    if espObjects[player] then
+        if espObjects[player].box then
+            espObjects[player].box:Destroy()
+        end
+        if espObjects[player].gui then
+            espObjects[player].gui:Destroy()
+        end
+        espObjects[player] = nil
+    end
+end
+
+local function clearAllESP()
+    for player, _ in pairs(espObjects) do
+        removeESP(player)
+    end
+    espObjects = {}
+end
+
+local function updateESP()
+    if not espEnabled then return end
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if isEnemy(player) and not espObjects[player] then
+            createESP(player)
+        elseif not isEnemy(player) and espObjects[player] then
+            removeESP(player)
+        end
+    end
+end
+
+local function getClosestEnemy()
+    local closestPlayer = nil
+    local closestDistance = maxAimDistance
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if isEnemy(player) then
+            local distance = getPlayerDistance(player)
+            if distance < closestDistance then
+                closestDistance = distance
+                closestPlayer = player
+            end
+        end
+    end
+    
+    return closestPlayer
+end
+
+local function aimAtTarget(target)
+    if not target or not target.Character then
+        return
+    end
+    
+    local targetPart = target.Character:FindFirstChild("Head") or target.Character:FindFirstChild("HumanoidRootPart")
+    if not targetPart then
+        return
+    end
+    
+    local localChar = LocalPlayer.Character
+    if not localChar or not localChar:FindFirstChild("HumanoidRootPart") then
+        return
+    end
+    
+    -- Calculate aim position
+    local targetPosition = targetPart.Position
+    local cameraPosition = Camera.CFrame.Position
+    local direction = (targetPosition - cameraPosition).Unit
+    
+    -- Smooth aiming
+    local currentCFrame = Camera.CFrame
+    local targetCFrame = CFrame.lookAt(cameraPosition, targetPosition)
+    
+    -- Lerp for smooth aiming
+    local newCFrame = currentCFrame:Lerp(targetCFrame, aimSmoothness)
+    Camera.CFrame = newCFrame
+end
+
+local function startAutoAim()
+    if aimUpdateConnection then
+        aimUpdateConnection:Disconnect()
+    end
+    
+    aimUpdateConnection = RunService.Heartbeat:Connect(function()
+        if autoAimEnabled then
+            currentTarget = getClosestEnemy()
+            if currentTarget then
+                aimAtTarget(currentTarget)
+            end
+        end
+    end)
+end
+
+local function stopAutoAim()
+    if aimUpdateConnection then
+        aimUpdateConnection:Disconnect()
+        aimUpdateConnection = nil
+    end
+    currentTarget = nil
+end
+
+-- Button Events
+local function setupButton(button, callback)
+    button.MouseButton1Click:Connect(callback)
+    if isMobile then
+        button.TouchTap:Connect(callback)
+    end
+    
+    -- Hover effects for PC
+    if not isMobile then
+        button.MouseEnter:Connect(function()
+            local hoverTween = TweenService:Create(button, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.new(button.BackgroundColor3.R * 1.2, button.BackgroundColor3.G * 1.2, button.BackgroundColor3.B * 1.2)
+            })
+            hoverTween:Play()
+        end)
+        
+        button.MouseLeave:Connect(function()
+            local leaveTween = TweenService:Create(button, TweenInfo.new(0.2), {
+                BackgroundColor3 = button.BackgroundColor3
+            })
+            leaveTween:Play()
+        end)
+    end
+end
+
+setupButton(ESPButton, function()
+    espEnabled = not espEnabled
+    
+    if espEnabled then
+        ESPButton.Text = "👁️ ESP Enemy: ON"
+        ESPButton.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+        updateStatus("👁️ ESP activated - Enemies visible!", Color3.fromRGB(100, 255, 100))
+        
+        -- Start ESP updates
+        if espUpdateConnection then
+            espUpdateConnection:Disconnect()
+        end
+        espUpdateConnection = RunService.Heartbeat:Connect(updateESP)
+        
+        -- Initial ESP creation
+        updateESP()
+    else
+        ESPButton.Text = "👁️ ESP Enemy: OFF"
+        ESPButton.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+        updateStatus("👁️ ESP deactivated", Color3.fromRGB(255, 255, 100))
+        
+        -- Stop ESP updates and clear
+        if espUpdateConnection then
+            espUpdateConnection:Disconnect()
+            espUpdateConnection = nil
+        end
+        clearAllESP()
+    end
+end)
+
+setupButton(AimButton, function()
+    autoAimEnabled = not autoAimEnabled
+    
+    if autoAimEnabled then
+        AimButton.Text = "🎯 Auto Aim: ON"
+        AimButton.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+        updateStatus("🎯 Auto aim activated - Targeting enemies!", Color3.fromRGB(100, 255, 100))
+        startAutoAim()
+    else
+        AimButton.Text = "🎯 Auto Aim: OFF"
+        AimButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+        updateStatus("🎯 Auto aim deactivated", Color3.fromRGB(255, 255, 100))
+        stopAutoAim()
+    end
+end)
+
+-- Player Events
+Players.PlayerAdded:Connect(function(player)
+    if espEnabled then
+        wait(1) -- Wait for character to load
+        updateESP()
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    removeESP(player)
+end)
+
+-- Character respawn handling
+LocalPlayer.CharacterAdded:Connect(function()
+    wait(2) -- Wait for character to fully load
+    if espEnabled then
+        updateESP()
+    end
+end)
+
+-- Keyboard shortcuts (PC only)
+if not isMobile then
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        
+        if input.KeyCode == Enum.KeyCode.E then
+            ESPButton.MouseButton1Click()
+        elseif input.KeyCode == Enum.KeyCode.T then
+            AimButton.MouseButton1Click()
+        elseif input.KeyCode == Enum.KeyCode.H then
+            MainFrame.Visible = not MainFrame.Visible
+        end
+    end)
+end
+
+-- Cleanup on GUI destruction
+ScreenGui.AncestryChanged:Connect(function()
+    if not ScreenGui.Parent then
+        clearAllESP()
+        stopAutoAim()
+        if espUpdateConnection then
+            espUpdateConnection:Disconnect()
+        end
+    end
+end)
+
+-- Initialize
+spawn(function()
+    wait(2)
+    updateStatus("🍰 Dessert War script loaded!", Color3.fromRGB(255, 200, 100))
+    wait(3)
+    updateStatus("🎮 Ready for battle!", Color3.fromRGB(100, 255, 100))
+end)
+
+print("🍰 DESSERT WAR ESP & AUTO AIM SCRIPT LOADED!")
+print("=" .. string.rep("=", 45))
+print("✨ FEATURES:")
+print("   👁️ ESP Enemy Detection")
+print("   🎯 Auto Aim System")
+print("   📱 Mobile & PC Compatible")
+print("   🎮 Simple Controls")
+print("")
+if isMobile then
+    print("📱 MOBILE CONTROLS:")
+    print("   👁️ Tap ESP button to toggle")
+    print("   🎯 Tap Aim button to toggle")
+    print("   📱 Drag GUI to move")
+else
+    print("⌨️ KEYBOARD SHORTCUTS:")
+    print("   E - Toggle ESP")
+    print("   T - Toggle Auto Aim")
+    print("   H - Hide/Show GUI")
+end
+print("")
+print("🎯 READY TO DOMINATE DESSERT WAR!")
+print("=" .. string.rep("=", 45))
