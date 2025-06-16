@@ -1,6 +1,6 @@
--- Dessert War Military GUI - Professional Edition
--- Version: 4.0 - Military Desert Theme
--- Features: Scrollable UI, Tabs, Military Design, Complete Features
+-- ComboChronicle Vault | Desert War GUI
+-- Version: 5.0 - Modern Clean Design
+-- Features: Toggle Switches, Clean Layout, Modern UI
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -20,15 +20,11 @@ local isMobile = UserInputService.TouchEnabled and not UserInputService.Keyboard
 local espEnabled = false
 local hitboxEnabled = false
 local specialOpsEnabled = false
-local noRecoilEnabled = false
-local rapidFireEnabled = false
-local fastReloadEnabled = false
-local infiniteAmmoEnabled = false
+local gunModsEnabled = false
 local aimbotEnabled = false
 local autoLockEnabled = false
 local trickshotEnabled = false
-local fovRadius = 500
-local isMinimized = false
+local fovRadius = 750
 local currentTab = "Main"
 
 -- ESP and Aimbot objects
@@ -43,7 +39,7 @@ local aimUpdateConnection = nil
 
 -- Create ScreenGui
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "DessertWarMilitary"
+ScreenGui.Name = "ComboChronicleVault"
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -64,50 +60,50 @@ local screenInfo = getScreenInfo()
 
 -- Calculate responsive sizes
 local function getResponsiveSizes()
-    local scale = math.clamp(screenInfo.scale, 0.5, 1.2)
+    local scale = math.clamp(screenInfo.scale, 0.6, 1.2)
     return {
-        mainWidth = math.floor(380 * scale),
-        mainHeight = math.floor(520 * scale),
-        topBarHeight = math.floor(60 * scale),
-        buttonHeight = math.floor(35 * scale),
-        fontSize = math.floor(12 * scale),
+        mainWidth = math.floor(420 * scale),
+        mainHeight = math.floor(500 * scale),
+        topBarHeight = math.floor(50 * scale),
+        itemHeight = math.floor(55 * scale),
+        fontSize = math.floor(14 * scale),
         titleSize = math.floor(16 * scale),
-        padding = math.floor(10 * scale),
-        cornerRadius = math.floor(8 * scale),
-        tabHeight = math.floor(40 * scale)
+        padding = math.floor(15 * scale),
+        cornerRadius = math.floor(12 * scale),
+        tabHeight = math.floor(45 * scale)
     }
 end
 
 local sizes = getResponsiveSizes()
 
--- Military Desert Color Palette
+-- Modern Color Palette (matching the image)
 local Colors = {
-    -- Primary Colors
-    DesertTan = Color3.fromRGB(194, 154, 108),
-    DarkBrown = Color3.fromRGB(101, 67, 33),
-    MilitaryGreen = Color3.fromRGB(75, 83, 32),
-    CamoOrange = Color3.fromRGB(184, 115, 51),
-    
-    -- Background Colors
-    MainBG = Color3.fromRGB(45, 35, 25),
-    SecondaryBG = Color3.fromRGB(35, 28, 20),
-    DarkBG = Color3.fromRGB(25, 20, 15),
-    
-    -- Accent Colors
-    ActiveOrange = Color3.fromRGB(255, 140, 0),
-    HoverOrange = Color3.fromRGB(255, 165, 0),
-    DisabledGray = Color3.fromRGB(80, 70, 60),
+    -- Main Colors
+    Background = Color3.fromRGB(45, 65, 65),      -- Dark teal background
+    Surface = Color3.fromRGB(55, 75, 75),         -- Slightly lighter surface
+    Primary = Color3.fromRGB(64, 224, 208),       -- Cyan/turquoise accent
+    Secondary = Color3.fromRGB(70, 90, 90),       -- Secondary surface
     
     -- Text Colors
-    TextWhite = Color3.fromRGB(255, 255, 255),
-    TextGray = Color3.fromRGB(200, 190, 180),
-    TextDark = Color3.fromRGB(50, 40, 30),
+    TextPrimary = Color3.fromRGB(255, 255, 255),  -- White text
+    TextSecondary = Color3.fromRGB(200, 220, 220), -- Light gray text
+    TextMuted = Color3.fromRGB(150, 170, 170),    -- Muted text
+    
+    -- Toggle Colors
+    ToggleOn = Color3.fromRGB(64, 224, 208),      -- Cyan when on
+    ToggleOff = Color3.fromRGB(80, 100, 100),     -- Gray when off
+    ToggleKnob = Color3.fromRGB(255, 255, 255),   -- White knob
+    
+    -- Slider Colors
+    SliderTrack = Color3.fromRGB(70, 90, 90),     -- Track color
+    SliderFill = Color3.fromRGB(64, 224, 208),    -- Fill color
+    SliderHandle = Color3.fromRGB(255, 255, 255), -- Handle color
     
     -- Status Colors
-    SuccessGreen = Color3.fromRGB(76, 175, 80),
-    WarningYellow = Color3.fromRGB(255, 193, 7),
-    DangerRed = Color3.fromRGB(244, 67, 54),
-    InfoBlue = Color3.fromRGB(33, 150, 243)
+    Success = Color3.fromRGB(76, 175, 80),
+    Warning = Color3.fromRGB(255, 193, 7),
+    Error = Color3.fromRGB(244, 67, 54),
+    Info = Color3.fromRGB(33, 150, 243)
 }
 
 -- Create Main Container
@@ -123,66 +119,29 @@ MainContainer.ZIndex = 1
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = MainContainer
-MainFrame.BackgroundColor3 = Colors.MainBG
+MainFrame.BackgroundColor3 = Colors.Background
 MainFrame.BorderSizePixel = 0
-MainFrame.Position = UDim2.new(0, 50, 0, 50)
+MainFrame.Position = UDim2.new(0.5, -sizes.mainWidth/2, 0.5, -sizes.mainHeight/2)
 MainFrame.Size = UDim2.new(0, sizes.mainWidth, 0, sizes.mainHeight)
 MainFrame.Active = true
 MainFrame.ZIndex = 10
-
--- Main Frame Gradient
-local MainGradient = Instance.new("UIGradient")
-MainGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Colors.SecondaryBG),
-    ColorSequenceKeypoint.new(0.3, Colors.MainBG),
-    ColorSequenceKeypoint.new(0.7, Colors.DarkBG),
-    ColorSequenceKeypoint.new(1, Colors.SecondaryBG)
-}
-MainGradient.Rotation = 135
-MainGradient.Parent = MainFrame
 
 -- Main Frame Corner
 local MainCorner = Instance.new("UICorner")
 MainCorner.CornerRadius = UDim.new(0, sizes.cornerRadius)
 MainCorner.Parent = MainFrame
 
--- Main Frame Shadow
-local MainShadow = Instance.new("Frame")
-MainShadow.Name = "MainShadow"
-MainShadow.Parent = MainContainer
-MainShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-MainShadow.BackgroundTransparency = 0.6
-MainShadow.BorderSizePixel = 0
-MainShadow.Position = UDim2.new(0, 55, 0, 55)
-MainShadow.Size = UDim2.new(0, sizes.mainWidth, 0, sizes.mainHeight)
-MainShadow.ZIndex = 5
-
-local ShadowCorner = Instance.new("UICorner")
-ShadowCorner.CornerRadius = UDim.new(0, sizes.cornerRadius)
-ShadowCorner.Parent = MainShadow
-
--- Main Frame Border
-local MainBorder = Instance.new("UIStroke")
-MainBorder.Color = Colors.CamoOrange
-MainBorder.Thickness = 2
-MainBorder.Transparency = 0.3
-MainBorder.Parent = MainFrame
-
 -- Enhanced Dragging System
-local function setupDragging(frame, shadowFrame)
+local function setupDragging(frame)
     local dragging = false
     local dragStart = nil
     local startPos = nil
-    local shadowStartPos = nil
     
     local function onInputBegan(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
             startPos = frame.Position
-            if shadowFrame then
-                shadowStartPos = shadowFrame.Position
-            end
         end
     end
     
@@ -196,15 +155,6 @@ local function setupDragging(frame, shadowFrame)
                 math.clamp(startPos.Y.Offset + delta.Y, 0, screenInfo.height - sizes.mainHeight)
             )
             frame.Position = newPos
-            
-            if shadowFrame and shadowStartPos then
-                shadowFrame.Position = UDim2.new(
-                    shadowStartPos.X.Scale, 
-                    newPos.X.Offset + 5,
-                    shadowStartPos.Y.Scale, 
-                    newPos.Y.Offset + 5
-                )
-            end
         end
     end
     
@@ -219,449 +169,326 @@ local function setupDragging(frame, shadowFrame)
     frame.InputEnded:Connect(onInputEnded)
 end
 
-setupDragging(MainFrame, MainShadow)
+setupDragging(MainFrame)
 
 -- Top Bar
 local TopBar = Instance.new("Frame")
 TopBar.Name = "TopBar"
 TopBar.Parent = MainFrame
-TopBar.BackgroundColor3 = Colors.DarkBrown
-TopBar.BorderSizePixel = 0
+TopBar.BackgroundTransparency = 1
 TopBar.Position = UDim2.new(0, 0, 0, 0)
 TopBar.Size = UDim2.new(1, 0, 0, sizes.topBarHeight)
 TopBar.ZIndex = 15
-
--- Top Bar Gradient
-local TopBarGradient = Instance.new("UIGradient")
-TopBarGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Colors.CamoOrange),
-    ColorSequenceKeypoint.new(0.5, Colors.DarkBrown),
-    ColorSequenceKeypoint.new(1, Colors.MilitaryGreen)
-}
-TopBarGradient.Rotation = 90
-TopBarGradient.Parent = TopBar
-
-local TopBarCorner = Instance.new("UICorner")
-TopBarCorner.CornerRadius = UDim.new(0, sizes.cornerRadius)
-TopBarCorner.Parent = TopBar
 
 -- Title Label
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Name = "TitleLabel"
 TitleLabel.Parent = TopBar
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Position = UDim2.new(0, sizes.padding, 0, 5)
-TitleLabel.Size = UDim2.new(1, -120, 0, 25)
-TitleLabel.Font = Enum.Font.GothamBold
-TitleLabel.Text = "⚔️ DESSERT WAR TACTICAL"
-TitleLabel.TextColor3 = Colors.TextWhite
+TitleLabel.Position = UDim2.new(0, sizes.padding, 0, 0)
+TitleLabel.Size = UDim2.new(1, -100, 1, 0)
+TitleLabel.Font = Enum.Font.GothamSemibold
+TitleLabel.Text = "ComboChronicle Vault | Desert war"
+TitleLabel.TextColor3 = Colors.TextPrimary
 TitleLabel.TextSize = sizes.titleSize
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-TitleLabel.TextStrokeTransparency = 0
-TitleLabel.TextStrokeColor3 = Colors.TextDark
+TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
 TitleLabel.ZIndex = 20
 
--- Subtitle
-local SubTitle = Instance.new("TextLabel")
-SubTitle.Name = "SubTitle"
-SubTitle.Parent = TopBar
-SubTitle.BackgroundTransparency = 1
-SubTitle.Position = UDim2.new(0, sizes.padding, 0, 30)
-SubTitle.Size = UDim2.new(1, -120, 0, 20)
-SubTitle.Font = Enum.Font.Gotham
-SubTitle.Text = "🔰 Military Operations v4.0"
-SubTitle.TextColor3 = Colors.TextGray
-SubTitle.TextSize = sizes.fontSize - 1
-SubTitle.TextXAlignment = Enum.TextXAlignment.Left
-SubTitle.TextStrokeTransparency = 0
-SubTitle.TextStrokeColor3 = Colors.TextDark
-SubTitle.ZIndex = 20
+-- Control Icons (Search, Profile, Settings, Close)
+local function createTopIcon(icon, position, callback)
+    local iconButton = Instance.new("TextButton")
+    iconButton.Parent = TopBar
+    iconButton.BackgroundTransparency = 1
+    iconButton.Position = UDim2.new(1, position, 0, 10)
+    iconButton.Size = UDim2.new(0, 30, 0, 30)
+    iconButton.Font = Enum.Font.GothamSemibold
+    iconButton.Text = icon
+    iconButton.TextColor3 = Colors.TextSecondary
+    iconButton.TextSize = 16
+    iconButton.ZIndex = 20
+    
+    if callback then
+        if isMobile then
+            iconButton.TouchTap:Connect(callback)
+        else
+            iconButton.MouseButton1Click:Connect(callback)
+        end
+    end
+    
+    return iconButton
+end
 
--- Control Buttons
-local MinimizeButton = Instance.new("TextButton")
-MinimizeButton.Name = "MinimizeButton"
-MinimizeButton.Parent = TopBar
-MinimizeButton.BackgroundColor3 = Colors.WarningYellow
-MinimizeButton.BorderSizePixel = 0
-MinimizeButton.Position = UDim2.new(1, -70, 0, 10)
-MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
-MinimizeButton.Font = Enum.Font.GothamBold
-MinimizeButton.Text = "−"
-MinimizeButton.TextColor3 = Colors.TextDark
-MinimizeButton.TextSize = 18
-MinimizeButton.ZIndex = 20
+local SearchIcon = createTopIcon("🔍", -130, nil)
+local ProfileIcon = createTopIcon("👤", -95, nil)
+local SettingsIcon = createTopIcon("⚙️", -60, nil)
+local CloseIcon = createTopIcon("✕", -25, function()
+    ScreenGui:Destroy()
+end)
 
-local MinCorner = Instance.new("UICorner")
-MinCorner.CornerRadius = UDim.new(0, 6)
-MinCorner.Parent = MinimizeButton
-
-local CloseButton = Instance.new("TextButton")
-CloseButton.Name = "CloseButton"
-CloseButton.Parent = TopBar
-CloseButton.BackgroundColor3 = Colors.DangerRed
-CloseButton.BorderSizePixel = 0
-CloseButton.Position = UDim2.new(1, -35, 0, 10)
-CloseButton.Size = UDim2.new(0, 30, 0, 30)
-CloseButton.Font = Enum.Font.GothamBold
-CloseButton.Text = "✕"
-CloseButton.TextColor3 = Colors.TextWhite
-CloseButton.TextSize = 14
-CloseButton.ZIndex = 20
-
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 6)
-CloseCorner.Parent = CloseButton
-
--- Tab System
+-- Tab Container
 local TabContainer = Instance.new("Frame")
 TabContainer.Name = "TabContainer"
 TabContainer.Parent = MainFrame
 TabContainer.BackgroundTransparency = 1
-TabContainer.Position = UDim2.new(0, 0, 0, sizes.topBarHeight)
-TabContainer.Size = UDim2.new(1, 0, 0, sizes.tabHeight)
+TabContainer.Position = UDim2.new(0, sizes.padding, 0, sizes.topBarHeight + 10)
+TabContainer.Size = UDim2.new(1, -sizes.padding*2, 0, sizes.tabHeight)
 TabContainer.ZIndex = 12
 
-local TabLayout = Instance.new("UIListLayout")
-TabLayout.Parent = TabContainer
-TabLayout.FillDirection = Enum.FillDirection.Horizontal
-TabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
-TabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-TabLayout.Padding = UDim.new(0, 2)
-
-local TabPadding = Instance.new("UIPadding")
-TabPadding.Parent = TabContainer
-TabPadding.PaddingLeft = UDim.new(0, sizes.padding)
-TabPadding.PaddingRight = UDim.new(0, sizes.padding)
-
 -- Tab Creation Function
-local function createTab(name, icon, isActive)
+local function createTab(name, icon, isActive, position)
     local tab = Instance.new("TextButton")
     tab.Name = name .. "Tab"
     tab.Parent = TabContainer
-    tab.BackgroundColor3 = isActive and Colors.ActiveOrange or Colors.DisabledGray
+    tab.BackgroundColor3 = isActive and Colors.Primary or Colors.Secondary
     tab.BorderSizePixel = 0
-    tab.Size = UDim2.new(0, 120, 0, sizes.tabHeight - 10)
-    tab.Font = Enum.Font.GothamBold
+    tab.Position = UDim2.new(0, position, 0, 0)
+    tab.Size = UDim2.new(0, 120, 0, sizes.tabHeight - 5)
+    tab.Font = Enum.Font.GothamSemibold
     tab.Text = icon .. " " .. name
-    tab.TextColor3 = Colors.TextWhite
+    tab.TextColor3 = isActive and Colors.Background or Colors.TextPrimary
     tab.TextSize = sizes.fontSize
-    tab.TextStrokeTransparency = 0
-    tab.TextStrokeColor3 = Colors.TextDark
     tab.ZIndex = 15
     
     local tabCorner = Instance.new("UICorner")
-    tabCorner.CornerRadius = UDim.new(0, 6)
+    tabCorner.CornerRadius = UDim.new(0, 8)
     tabCorner.Parent = tab
-    
-    local tabGradient = Instance.new("UIGradient")
-    if isActive then
-        tabGradient.Color = ColorSequence.new{
-            ColorSequenceKeypoint.new(0, Colors.ActiveOrange),
-            ColorSequenceKeypoint.new(1, Colors.CamoOrange)
-        }
-    else
-        tabGradient.Color = ColorSequence.new{
-            ColorSequenceKeypoint.new(0, Colors.DisabledGray),
-            ColorSequenceKeypoint.new(1, Colors.SecondaryBG)
-        }
-    end
-    tabGradient.Rotation = 90
-    tabGradient.Parent = tab
     
     return tab
 end
 
 -- Create Tabs
-local MainTab = createTab("Main", "🔰", true)
-local AimbotTab = createTab("Aimbot", "🎯", false)
+local MainTab = createTab("Main", "⚙️", true, 0)
+local AimbotTab = createTab("Aimbot+", "🎯", false, 130)
 
--- Content Frame (Scrollable)
-local ContentFrame = Instance.new("ScrollingFrame")
+-- Content Frame
+local ContentFrame = Instance.new("Frame")
 ContentFrame.Name = "ContentFrame"
 ContentFrame.Parent = MainFrame
-ContentFrame.BackgroundColor3 = Colors.SecondaryBG
-ContentFrame.BorderSizePixel = 0
-ContentFrame.Position = UDim2.new(0, 0, 0, sizes.topBarHeight + sizes.tabHeight)
-ContentFrame.Size = UDim2.new(1, 0, 1, -(sizes.topBarHeight + sizes.tabHeight + 50))
-ContentFrame.ScrollBarThickness = 8
-ContentFrame.ScrollBarImageColor3 = Colors.CamoOrange
-ContentFrame.ScrollBarImageTransparency = 0.3
-ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 800)
-ContentFrame.ScrollingDirection = Enum.ScrollingDirection.Y
-ContentFrame.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Position = UDim2.new(0, sizes.padding, 0, sizes.topBarHeight + sizes.tabHeight + 20)
+ContentFrame.Size = UDim2.new(1, -sizes.padding*2, 1, -(sizes.topBarHeight + sizes.tabHeight + 30))
 ContentFrame.ZIndex = 12
-
--- Content Frame Gradient
-local ContentGradient = Instance.new("UIGradient")
-ContentGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Colors.SecondaryBG),
-    ColorSequenceKeypoint.new(1, Colors.DarkBG)
-}
-ContentGradient.Rotation = 180
-ContentGradient.Parent = ContentFrame
 
 -- Content Layout
 local ContentLayout = Instance.new("UIListLayout")
 ContentLayout.Parent = ContentFrame
 ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ContentLayout.Padding = UDim.new(0, sizes.padding)
+ContentLayout.Padding = UDim.new(0, 10)
 ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-local ContentPadding = Instance.new("UIPadding")
-ContentPadding.Parent = ContentFrame
-ContentPadding.PaddingTop = UDim.new(0, sizes.padding)
-ContentPadding.PaddingBottom = UDim.new(0, sizes.padding)
-ContentPadding.PaddingLeft = UDim.new(0, sizes.padding)
-ContentPadding.PaddingRight = UDim.new(0, sizes.padding + 8)
-
--- Section Creation Function
-local function createSection(title, icon, layoutOrder)
-    local section = Instance.new("Frame")
-    section.Name = title .. "Section"
-    section.Parent = ContentFrame
-    section.BackgroundColor3 = Colors.MainBG
-    section.BorderSizePixel = 0
-    section.Size = UDim2.new(1, -10, 0, 0)
-    section.LayoutOrder = layoutOrder
-    section.ZIndex = 13
+-- Toggle Switch Creation Function
+local function createToggleSwitch(parent, name, text, layoutOrder, isEnabled, callback)
+    local toggleFrame = Instance.new("Frame")
+    toggleFrame.Name = name .. "Frame"
+    toggleFrame.Parent = parent
+    toggleFrame.BackgroundColor3 = Colors.Surface
+    toggleFrame.BorderSizePixel = 0
+    toggleFrame.Size = UDim2.new(1, 0, 0, sizes.itemHeight)
+    toggleFrame.LayoutOrder = layoutOrder
+    toggleFrame.ZIndex = 16
     
-    local sectionCorner = Instance.new("UICorner")
-    sectionCorner.CornerRadius = UDim.new(0, 6)
-    sectionCorner.Parent = section
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(0, 8)
+    toggleCorner.Parent = toggleFrame
     
-    local sectionBorder = Instance.new("UIStroke")
-    sectionBorder.Color = Colors.DesertTan
-    sectionBorder.Thickness = 1
-    sectionBorder.Transparency = 0.5
-    sectionBorder.Parent = section
+    -- Toggle Label
+    local toggleLabel = Instance.new("TextLabel")
+    toggleLabel.Name = "Label"
+    toggleLabel.Parent = toggleFrame
+    toggleLabel.BackgroundTransparency = 1
+    toggleLabel.Position = UDim2.new(0, 15, 0, 0)
+    toggleLabel.Size = UDim2.new(1, -80, 1, 0)
+    toggleLabel.Font = Enum.Font.GothamSemibold
+    toggleLabel.Text = text
+    toggleLabel.TextColor3 = Colors.TextPrimary
+    toggleLabel.TextSize = sizes.fontSize
+    toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    toggleLabel.TextYAlignment = Enum.TextYAlignment.Center
+    toggleLabel.ZIndex = 17
     
-    local sectionGradient = Instance.new("UIGradient")
-    sectionGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Colors.MainBG),
-        ColorSequenceKeypoint.new(1, Colors.SecondaryBG)
-    }
-    sectionGradient.Rotation = 45
-    sectionGradient.Parent = section
+    -- Toggle Switch Background
+    local switchBG = Instance.new("Frame")
+    switchBG.Name = "SwitchBG"
+    switchBG.Parent = toggleFrame
+    switchBG.BackgroundColor3 = isEnabled and Colors.ToggleOn or Colors.ToggleOff
+    switchBG.BorderSizePixel = 0
+    switchBG.Position = UDim2.new(1, -55, 0.5, -12)
+    switchBG.Size = UDim2.new(0, 45, 0, 24)
+    switchBG.ZIndex = 17
     
-    -- Section Header
-    local header = Instance.new("TextLabel")
-    header.Name = "Header"
-    header.Parent = section
-    header.BackgroundTransparency = 1
-    header.Position = UDim2.new(0, sizes.padding, 0, 8)
-    header.Size = UDim2.new(1, -sizes.padding*2, 0, 25)
-    header.Font = Enum.Font.GothamBold
-    header.Text = icon .. " " .. title
-    header.TextColor3 = Colors.DesertTan
-    header.TextSize = sizes.fontSize + 1
-    header.TextXAlignment = Enum.TextXAlignment.Left
-    header.TextStrokeTransparency = 0
-    header.TextStrokeColor3 = Colors.TextDark
-    header.ZIndex = 15
+    local switchCorner = Instance.new("UICorner")
+    switchCorner.CornerRadius = UDim.new(0, 12)
+    switchCorner.Parent = switchBG
     
-    -- Section Content
-    local content = Instance.new("Frame")
-    content.Name = "Content"
-    content.Parent = section
-    content.BackgroundTransparency = 1
-    content.Position = UDim2.new(0, 0, 0, 35)
-    content.Size = UDim2.new(1, 0, 1, -35)
-    content.ZIndex = 14
+    -- Toggle Switch Knob
+    local switchKnob = Instance.new("Frame")
+    switchKnob.Name = "SwitchKnob"
+    switchKnob.Parent = switchBG
+    switchKnob.BackgroundColor3 = Colors.ToggleKnob
+    switchKnob.BorderSizePixel = 0
+    switchKnob.Position = isEnabled and UDim2.new(0, 23, 0, 2) or UDim2.new(0, 2, 0, 2)
+    switchKnob.Size = UDim2.new(0, 20, 0, 20)
+    switchKnob.ZIndex = 18
     
-    local contentLayout = Instance.new("UIListLayout")
-    contentLayout.Parent = content
-    contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    contentLayout.Padding = UDim.new(0, 6)
-    contentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    local knobCorner = Instance.new("UICorner")
+    knobCorner.CornerRadius = UDim.new(0, 10)
+    knobCorner.Parent = switchKnob
     
-    local contentPadding = Instance.new("UIPadding")
-    contentPadding.Parent = content
-    contentPadding.PaddingTop = UDim.new(0, 5)
-    contentPadding.PaddingBottom = UDim2.new(0, 10)
-    contentPadding.PaddingLeft = UDim.new(0, sizes.padding)
-    contentPadding.PaddingRight = UDim.new(0, sizes.padding)
+    -- Toggle Logic
+    local enabled = isEnabled
     
-    return section, content
+    local function toggleSwitch()
+        enabled = not enabled
+        
+        local bgTween = TweenService:Create(switchBG, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+            BackgroundColor3 = enabled and Colors.ToggleOn or Colors.ToggleOff
+        })
+        
+        local knobTween = TweenService:Create(switchKnob, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+            Position = enabled and UDim2.new(0, 23, 0, 2) or UDim2.new(0, 2, 0, 2)
+        })
+        
+        bgTween:Play()
+        knobTween:Play()
+        
+        if callback then
+            callback(enabled)
+        end
+    end
+    
+    -- Click Events
+    if isMobile then
+        toggleFrame.TouchTap:Connect(toggleSwitch)
+    else
+        local toggleButton = Instance.new("TextButton")
+        toggleButton.Parent = toggleFrame
+        toggleButton.BackgroundTransparency = 1
+        toggleButton.Size = UDim2.new(1, 0, 1, 0)
+        toggleButton.Text = ""
+        toggleButton.ZIndex = 19
+        toggleButton.MouseButton1Click:Connect(toggleSwitch)
+    end
+    
+    return toggleFrame, function() return enabled end
 end
 
--- Button Creation Function
-local function createButton(parent, name, text, color, layoutOrder, isToggle)
-    local button = Instance.new("TextButton")
-    button.Name = name
-    button.Parent = parent
-    button.BackgroundColor3 = color
-    button.BorderSizePixel = 0
-    button.Size = UDim2.new(1, 0, 0, sizes.buttonHeight)
-    button.Font = Enum.Font.GothamSemibold
-    button.Text = text
-    button.TextColor3 = Colors.TextWhite
-    button.TextSize = sizes.fontSize
-    button.TextStrokeTransparency = 0
-    button.TextStrokeColor3 = Colors.TextDark
-    button.LayoutOrder = layoutOrder
-    button.ZIndex = 16
+-- Button Creation Function (for non-toggle items)
+local function createButton(parent, name, text, layoutOrder, callback)
+    local buttonFrame = Instance.new("TextButton")
+    buttonFrame.Name = name .. "Frame"
+    buttonFrame.Parent = parent
+    buttonFrame.BackgroundColor3 = Colors.Surface
+    buttonFrame.BorderSizePixel = 0
+    buttonFrame.Size = UDim2.new(1, 0, 0, sizes.itemHeight)
+    buttonFrame.LayoutOrder = layoutOrder
+    buttonFrame.ZIndex = 16
+    buttonFrame.Font = Enum.Font.GothamSemibold
+    buttonFrame.Text = text
+    buttonFrame.TextColor3 = Colors.TextPrimary
+    buttonFrame.TextSize = sizes.fontSize
+    buttonFrame.TextXAlignment = Enum.TextXAlignment.Left
     
     local buttonCorner = Instance.new("UICorner")
-    buttonCorner.CornerRadius = UDim.new(0, 6)
-    buttonCorner.Parent = button
+    buttonCorner.CornerRadius = UDim.new(0, 8)
+    buttonCorner.Parent = buttonFrame
     
-    local buttonGradient = Instance.new("UIGradient")
-    buttonGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.new(color.R * 1.2, color.G * 1.2, color.B * 1.2)),
-        ColorSequenceKeypoint.new(0.5, color),
-        ColorSequenceKeypoint.new(1, Color3.new(color.R * 0.8, color.G * 0.8, color.B * 0.8))
-    }
-    buttonGradient.Rotation = 90
-    buttonGradient.Parent = button
+    local buttonPadding = Instance.new("UIPadding")
+    buttonPadding.Parent = buttonFrame
+    buttonPadding.PaddingLeft = UDim.new(0, 15)
     
-    local buttonBorder = Instance.new("UIStroke")
-    buttonBorder.Color = Colors.DesertTan
-    buttonBorder.Thickness = 1
-    buttonBorder.Transparency = 0.7
-    buttonBorder.Parent = button
-    
-    -- Hover Animation
-    local function onHover()
-        local hoverTween = TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            BackgroundColor3 = Color3.new(color.R * 1.3, color.G * 1.3, color.B * 1.3),
-            Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset, button.Size.Y.Scale, button.Size.Y.Offset + 2)
-        })
-        hoverTween:Play()
-        
-        local borderTween = TweenService:Create(buttonBorder, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            Transparency = 0.3
-        })
-        borderTween:Play()
+    -- Click Events
+    if callback then
+        if isMobile then
+            buttonFrame.TouchTap:Connect(callback)
+        else
+            buttonFrame.MouseButton1Click:Connect(callback)
+        end
     end
     
-    local function onLeave()
-        local leaveTween = TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            BackgroundColor3 = color,
-            Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset, button.Size.Y.Scale, button.Size.Y.Offset - 2)
-        })
-        leaveTween:Play()
-        
-        local borderTween = TweenService:Create(buttonBorder, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            Transparency = 0.7
-        })
-        borderTween:Play()
-    end
-    
-    if not isMobile then
-        button.MouseEnter:Connect(onHover)
-        button.MouseLeave:Connect(onLeave)
-    end
-    
-    return button
+    return buttonFrame
 end
 
 -- Slider Creation Function
-local function createSlider(parent, name, text, minValue, maxValue, defaultValue, layoutOrder)
+local function createSlider(parent, name, text, minValue, maxValue, defaultValue, layoutOrder, callback)
     local sliderFrame = Instance.new("Frame")
     sliderFrame.Name = name .. "Frame"
     sliderFrame.Parent = parent
-    sliderFrame.BackgroundColor3 = Colors.SecondaryBG
+    sliderFrame.BackgroundColor3 = Colors.Surface
     sliderFrame.BorderSizePixel = 0
-    sliderFrame.Size = UDim2.new(1, 0, 0, 50)
+    sliderFrame.Size = UDim2.new(1, 0, 0, sizes.itemHeight)
     sliderFrame.LayoutOrder = layoutOrder
     sliderFrame.ZIndex = 16
     
     local sliderCorner = Instance.new("UICorner")
-    sliderCorner.CornerRadius = UDim.new(0, 6)
+    sliderCorner.CornerRadius = UDim.new(0, 8)
     sliderCorner.Parent = sliderFrame
-    
-    local sliderBorder = Instance.new("UIStroke")
-    sliderBorder.Color = Colors.DesertTan
-    sliderBorder.Thickness = 1
-    sliderBorder.Transparency = 0.5
-    sliderBorder.Parent = sliderFrame
     
     -- Slider Label
     local sliderLabel = Instance.new("TextLabel")
     sliderLabel.Name = "Label"
     sliderLabel.Parent = sliderFrame
     sliderLabel.BackgroundTransparency = 1
-    sliderLabel.Position = UDim2.new(0, 10, 0, 5)
-    sliderLabel.Size = UDim2.new(1, -20, 0, 20)
+    sliderLabel.Position = UDim2.new(0, 15, 0, 5)
+    sliderLabel.Size = UDim2.new(1, -30, 0, 20)
     sliderLabel.Font = Enum.Font.GothamSemibold
     sliderLabel.Text = text
-    sliderLabel.TextColor3 = Colors.TextGray
+    sliderLabel.TextColor3 = Colors.TextPrimary
     sliderLabel.TextSize = sizes.fontSize
     sliderLabel.TextXAlignment = Enum.TextXAlignment.Left
-    sliderLabel.TextStrokeTransparency = 0
-    sliderLabel.TextStrokeColor3 = Colors.TextDark
     sliderLabel.ZIndex = 17
     
-    -- Slider Value Label
-    local valueLabel = Instance.new("TextLabel")
-    valueLabel.Name = "ValueLabel"
-    valueLabel.Parent = sliderFrame
-    valueLabel.BackgroundTransparency = 1
-    valueLabel.Position = UDim2.new(1, -80, 0, 5)
-    valueLabel.Size = UDim2.new(0, 70, 0, 20)
-    valueLabel.Font = Enum.Font.GothamBold
-    valueLabel.Text = tostring(defaultValue)
-    valueLabel.TextColor3 = Colors.ActiveOrange
-    valueLabel.TextSize = sizes.fontSize
-    valueLabel.TextXAlignment = Enum.TextXAlignment.Right
-    valueLabel.TextStrokeTransparency = 0
-    valueLabel.TextStrokeColor3 = Colors.TextDark
-    valueLabel.ZIndex = 17
+    -- Slider Track Container
+    local trackContainer = Instance.new("Frame")
+    trackContainer.Name = "TrackContainer"
+    trackContainer.Parent = sliderFrame
+    trackContainer.BackgroundTransparency = 1
+    trackContainer.Position = UDim2.new(0, 15, 0, 30)
+    trackContainer.Size = UDim2.new(1, -30, 0, 20)
+    trackContainer.ZIndex = 17
     
     -- Slider Track
     local sliderTrack = Instance.new("Frame")
     sliderTrack.Name = "Track"
-    sliderTrack.Parent = sliderFrame
-    sliderTrack.BackgroundColor3 = Colors.DarkBG
+    sliderTrack.Parent = trackContainer
+    sliderTrack.BackgroundColor3 = Colors.SliderTrack
     sliderTrack.BorderSizePixel = 0
-    sliderTrack.Position = UDim2.new(0, 10, 0, 30)
-    sliderTrack.Size = UDim2.new(1, -20, 0, 8)
-    sliderTrack.ZIndex = 17
+    sliderTrack.Position = UDim2.new(0, 0, 0.5, -3)
+    sliderTrack.Size = UDim2.new(1, 0, 0, 6)
+    sliderTrack.ZIndex = 18
     
     local trackCorner = Instance.new("UICorner")
-    trackCorner.CornerRadius = UDim.new(0, 4)
+    trackCorner.CornerRadius = UDim.new(0, 3)
     trackCorner.Parent = sliderTrack
     
     -- Slider Fill
     local sliderFill = Instance.new("Frame")
     sliderFill.Name = "Fill"
     sliderFill.Parent = sliderTrack
-    sliderFill.BackgroundColor3 = Colors.ActiveOrange
+    sliderFill.BackgroundColor3 = Colors.SliderFill
     sliderFill.BorderSizePixel = 0
     sliderFill.Position = UDim2.new(0, 0, 0, 0)
     sliderFill.Size = UDim2.new((defaultValue - minValue) / (maxValue - minValue), 0, 1, 0)
-    sliderFill.ZIndex = 18
+    sliderFill.ZIndex = 19
     
     local fillCorner = Instance.new("UICorner")
-    fillCorner.CornerRadius = UDim.new(0, 4)
+    fillCorner.CornerRadius = UDim.new(0, 3)
     fillCorner.Parent = sliderFill
     
-    local fillGradient = Instance.new("UIGradient")
-    fillGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Colors.ActiveOrange),
-        ColorSequenceKeypoint.new(1, Colors.CamoOrange)
-    }
-    fillGradient.Rotation = 90
-    fillGradient.Parent = sliderFill
-    
-    -- Slider Handle
-    local sliderHandle = Instance.new("Frame")
-    sliderHandle.Name = "Handle"
-    sliderHandle.Parent = sliderTrack
-    sliderHandle.BackgroundColor3 = Colors.DesertTan
-    sliderHandle.BorderSizePixel = 0
-    sliderHandle.Position = UDim2.new((defaultValue - minValue) / (maxValue - minValue), -6, 0, -4)
-    sliderHandle.Size = UDim2.new(0, 12, 0, 16)
-    sliderHandle.ZIndex = 19
-    
-    local handleCorner = Instance.new("UICorner")
-    handleCorner.CornerRadius = UDim.new(0, 6)
-    handleCorner.Parent = sliderHandle
-    
-    local handleBorder = Instance.new("UIStroke")
-    handleBorder.Color = Colors.TextWhite
-    handleBorder.Thickness = 2
-    handleBorder.Parent = sliderHandle
+    -- Value Display
+    local valueDisplay = Instance.new("TextLabel")
+    valueDisplay.Name = "ValueDisplay"
+    valueDisplay.Parent = sliderFill
+    valueDisplay.BackgroundTransparency = 1
+    valueDisplay.Position = UDim2.new(0.5, 0, 0.5, 0)
+    valueDisplay.Size = UDim2.new(0, 100, 0, 20)
+    valueDisplay.Font = Enum.Font.GothamBold
+    valueDisplay.Text = tostring(defaultValue) .. " studs"
+    valueDisplay.TextColor3 = Colors.Background
+    valueDisplay.TextSize = sizes.fontSize - 2
+    valueDisplay.TextXAlignment = Enum.TextXAlignment.Center
+    valueDisplay.TextYAlignment = Enum.TextYAlignment.Center
+    valueDisplay.ZIndex = 20
     
     -- Slider Logic
     local dragging = false
@@ -675,27 +502,30 @@ local function createSlider(parent, name, text, minValue, maxValue, defaultValue
         local relativeX = math.clamp((mouseX - trackPosition) / trackSize, 0, 1)
         currentValue = math.floor(minValue + (maxValue - minValue) * relativeX)
         
-        valueLabel.Text = tostring(currentValue)
+        valueDisplay.Text = tostring(currentValue) .. " studs"
         sliderFill.Size = UDim2.new(relativeX, 0, 1, 0)
-        sliderHandle.Position = UDim2.new(relativeX, -6, 0, -4)
+        
+        if callback then
+            callback(currentValue)
+        end
         
         return currentValue
     end
     
-    sliderTrack.InputBegan:Connect(function(input)
+    trackContainer.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             updateSlider(input)
         end
     end)
     
-    sliderTrack.InputChanged:Connect(function(input)
+    trackContainer.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             updateSlider(input)
         end
     end)
     
-    sliderTrack.InputEnded:Connect(function(input)
+    trackContainer.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
         end
@@ -704,307 +534,108 @@ local function createSlider(parent, name, text, minValue, maxValue, defaultValue
     return sliderFrame, function() return currentValue end
 end
 
--- Status Info Frame
-local StatusFrame = Instance.new("Frame")
-StatusFrame.Name = "StatusFrame"
-StatusFrame.Parent = MainFrame
-StatusFrame.BackgroundColor3 = Colors.DarkBG
-StatusFrame.BorderSizePixel = 0
-StatusFrame.Position = UDim2.new(0, 0, 1, -45)
-StatusFrame.Size = UDim2.new(1, 0, 0, 45)
-StatusFrame.ZIndex = 12
-
-local StatusCorner = Instance.new("UICorner")
-StatusCorner.CornerRadius = UDim.new(0, sizes.cornerRadius)
-StatusCorner.Parent = StatusFrame
-
-local StatusGradient = Instance.new("UIGradient")
-StatusGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Colors.DarkBG),
-    ColorSequenceKeypoint.new(1, Colors.SecondaryBG)
-}
-StatusGradient.Rotation = 90
-StatusGradient.Parent = StatusFrame
-
-local StatusBorder = Instance.new("UIStroke")
-StatusBorder.Color = Colors.CamoOrange
-StatusBorder.Thickness = 1
-StatusBorder.Transparency = 0.5
-StatusBorder.Parent = StatusFrame
-
--- Status Label
-local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Name = "StatusLabel"
-StatusLabel.Parent = StatusFrame
-StatusLabel.BackgroundTransparency = 1
-StatusLabel.Position = UDim2.new(0, sizes.padding, 0, 5)
-StatusLabel.Size = UDim2.new(1, -sizes.padding*2, 0, 35)
-StatusLabel.Font = Enum.Font.GothamSemibold
-StatusLabel.Text = "💀 Tactical Systems Ready"
-StatusLabel.TextColor3 = Colors.SuccessGreen
-StatusLabel.TextSize = sizes.fontSize
-StatusLabel.TextXAlignment = Enum.TextXAlignment.Center
-StatusLabel.TextStrokeTransparency = 0
-StatusLabel.TextStrokeColor3 = Colors.TextDark
-StatusLabel.ZIndex = 15
-
 -- Create Main Tab Content
 local function createMainTabContent()
-    -- ESP Section
-    local espSection, espContent = createSection("ESP Operations", "👁️", 1)
+    local mainContent = Instance.new("Frame")
+    mainContent.Name = "MainContent"
+    mainContent.Parent = ContentFrame
+    mainContent.BackgroundTransparency = 1
+    mainContent.Size = UDim2.new(1, 0, 1, 0)
+    mainContent.ZIndex = 13
     
-    local espButton = createButton(espContent, "ESPButton", "🔰 Enable ESP: OFF", Colors.DangerRed, 1, true)
-    local hitboxButton = createButton(espContent, "HitboxButton", "💀 Enemy Hitbox: OFF", Colors.DangerRed, 2, true)
+    local mainLayout = Instance.new("UIListLayout")
+    mainLayout.Parent = mainContent
+    mainLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    mainLayout.Padding = UDim.new(0, 10)
     
-    -- Special Operations Section
-    local opsSection, opsContent = createSection("Special Operations", "⚔️", 2)
+    local espToggle, getESPState = createToggleSwitch(mainContent, "ESP", "Enable ESP", 1, false, function(enabled)
+        espEnabled = enabled
+        if enabled then
+            updateESP()
+        else
+            clearAllESP()
+        end
+    end)
     
-    local specialOpsButton = createButton(opsContent, "SpecialOpsButton", "🔰 Unlock Special Ops: OFF", Colors.DangerRed, 1, true)
+    local hitboxToggle, getHitboxState = createToggleSwitch(mainContent, "Hitbox", "Enable Enemy Hitbox", 2, false, function(enabled)
+        hitboxEnabled = enabled
+    end)
     
-    -- Gun Modifications Section
-    local gunSection, gunContent = createSection("Weapon Modifications", "🔫", 3)
+    local specialOpsButton = createButton(mainContent, "SpecialOps", "Special Operations Unlocked", 3, function()
+        specialOpsEnabled = not specialOpsEnabled
+    end)
     
-    local noRecoilButton = createButton(gunContent, "NoRecoilButton", "🎯 No Recoil: OFF", Colors.DangerRed, 1, true)
-    local rapidFireButton = createButton(gunContent, "RapidFireButton", "⚡ Rapid Fire: OFF", Colors.DangerRed, 2, true)
-    local fastReloadButton = createButton(gunContent, "FastReloadButton", "🔄 Fast Reload: OFF", Colors.DangerRed, 3, true)
-    local infiniteAmmoButton = createButton(gunContent, "InfiniteAmmoButton", "♾️ Infinite Ammo: OFF", Colors.DangerRed, 4, true)
+    local gunModsButton = createButton(mainContent, "GunMods", "Gun Mods", 4, function()
+        gunModsEnabled = not gunModsEnabled
+    end)
     
-    -- Update section sizes
-    espSection.Size = UDim2.new(1, -10, 0, 100)
-    opsSection.Size = UDim2.new(1, -10, 0, 80)
-    gunSection.Size = UDim2.new(1, -10, 0, 200)
-    
-    return {
-        espButton = espButton,
-        hitboxButton = hitboxButton,
-        specialOpsButton = specialOpsButton,
-        noRecoilButton = noRecoilButton,
-        rapidFireButton = rapidFireButton,
-        fastReloadButton = fastReloadButton,
-        infiniteAmmoButton = infiniteAmmoButton
-    }
+    return mainContent
 end
 
 -- Create Aimbot Tab Content
 local function createAimbotTabContent()
-    -- Aimbot Section
-    local aimbotSection, aimbotContent = createSection("Targeting Systems", "🎯", 1)
+    local aimbotContent = Instance.new("Frame")
+    aimbotContent.Name = "AimbotContent"
+    aimbotContent.Parent = ContentFrame
+    aimbotContent.BackgroundTransparency = 1
+    aimbotContent.Size = UDim2.new(1, 0, 1, 0)
+    aimbotContent.Visible = false
+    aimbotContent.ZIndex = 13
     
-    local aimbotButton = createButton(aimbotContent, "AimbotButton", "🎯 Enable Aimbot: OFF", Colors.DangerRed, 1, true)
-    local autoLockButton = createButton(aimbotContent, "AutoLockButton", "🔒 Auto-Lock: OFF", Colors.DangerRed, 2, true)
-    local trickshotButton = createButton(aimbotContent, "TrickshotButton", "🌟 Trickshot Mode: OFF", Colors.DangerRed, 3, true)
+    local aimbotLayout = Instance.new("UIListLayout")
+    aimbotLayout.Parent = aimbotContent
+    aimbotLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    aimbotLayout.Padding = UDim.new(0, 10)
     
-    -- FOV Section
-    local fovSection, fovContent = createSection("Field of View", "📡", 2)
+    local aimbotToggle, getAimbotState = createToggleSwitch(aimbotContent, "Aimbot", "Enable Aimbot", 1, false, function(enabled)
+        aimbotEnabled = enabled
+        if enabled then
+            startAimbot()
+        else
+            stopAimbot()
+        end
+    end)
     
-    local fovSlider, getFOVValue = createSlider(fovContent, "FOVSlider", "🎯 FOV Radius (studs)", 250, 2000, 500, 1)
+    local autoLockToggle, getAutoLockState = createToggleSwitch(aimbotContent, "AutoLock", "Enable Auto-Lock", 2, false, function(enabled)
+        autoLockEnabled = enabled
+    end)
     
-    -- Update section sizes
-    aimbotSection.Size = UDim2.new(1, -10, 0, 150)
-    fovSection.Size = UDim2.new(1, -10, 0, 80)
+    local trickshotToggle, getTrickshotState = createToggleSwitch(aimbotContent, "Trickshot", "Enable Trickshot Mode", 3, false, function(enabled)
+        trickshotEnabled = enabled
+    end)
     
-    return {
-        aimbotButton = aimbotButton,
-        autoLockButton = autoLockButton,
-        trickshotButton = trickshotButton,
-        getFOVValue = getFOVValue
-    }
+    local fovSlider, getFOVValue = createSlider(aimbotContent, "FOV", "FOV Radius", 250, 2000, 750, 4, function(value)
+        fovRadius = value
+    end)
+    
+    return aimbotContent
 end
 
 -- Create tab contents
-local mainTabButtons = createMainTabContent()
-local aimbotTabButtons = createAimbotTabContent()
-
--- Initially hide aimbot content
-for _, child in pairs(ContentFrame:GetChildren()) do
-    if child:IsA("Frame") and child.LayoutOrder > 0 then
-        if child.LayoutOrder > 3 then
-            child.Visible = false
-        end
-    end
-end
-
--- Minimized Frame
-local MinimizedFrame = Instance.new("Frame")
-MinimizedFrame.Name = "MinimizedFrame"
-MinimizedFrame.Parent = MainContainer
-MinimizedFrame.BackgroundColor3 = Colors.MainBG
-MinimizedFrame.BorderSizePixel = 0
-MinimizedFrame.Position = UDim2.new(0, 50, 0, 50)
-MinimizedFrame.Size = UDim2.new(0, 200, 0, 50)
-MinimizedFrame.Visible = false
-MinimizedFrame.Active = true
-MinimizedFrame.ZIndex = 25
-
-local MinFrameCorner = Instance.new("UICorner")
-MinFrameCorner.CornerRadius = UDim.new(0, sizes.cornerRadius)
-MinFrameCorner.Parent = MinimizedFrame
-
-local MinFrameGradient = Instance.new("UIGradient")
-MinFrameGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Colors.CamoOrange),
-    ColorSequenceKeypoint.new(1, Colors.DarkBrown)
-}
-MinFrameGradient.Rotation = 90
-MinFrameGradient.Parent = MinimizedFrame
-
-local MinFrameBorder = Instance.new("UIStroke")
-MinFrameBorder.Color = Colors.DesertTan
-MinFrameBorder.Thickness = 2
-MinFrameBorder.Parent = MinimizedFrame
-
-local RestoreButton = Instance.new("TextButton")
-RestoreButton.Name = "RestoreButton"
-RestoreButton.Parent = MinimizedFrame
-RestoreButton.BackgroundTransparency = 1
-RestoreButton.Size = UDim2.new(1, 0, 1, 0)
-RestoreButton.Font = Enum.Font.GothamBold
-RestoreButton.Text = "⚔️ Dessert War Tactical"
-RestoreButton.TextColor3 = Colors.TextWhite
-RestoreButton.TextSize = sizes.fontSize
-RestoreButton.TextStrokeTransparency = 0
-RestoreButton.TextStrokeColor3 = Colors.TextDark
-RestoreButton.ZIndex = 26
-
-setupDragging(MinimizedFrame)
-
--- Animation Functions
-local function smoothMinimize()
-    isMinimized = true
-    
-    local minimizeTween = TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-        Size = UDim2.new(0, 0, 0, 0),
-        Position = UDim2.new(0.5, 0, 0.5, 0)
-    })
-    
-    local shadowTween = TweenService:Create(MainShadow, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-        Size = UDim2.new(0, 0, 0, 0),
-        BackgroundTransparency = 1
-    })
-    
-    minimizeTween:Play()
-    shadowTween:Play()
-    
-    minimizeTween.Completed:Connect(function()
-        MainFrame.Visible = false
-        MainShadow.Visible = false
-        MinimizedFrame.Visible = true
-        
-        MinimizedFrame.Size = UDim2.new(0, 0, 0, 0)
-        local restoreTween = TweenService:Create(MinimizedFrame, TweenInfo.new(0.4, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 200, 0, 50)
-        })
-        restoreTween:Play()
-    end)
-end
-
-local function smoothRestore()
-    isMinimized = false
-    
-    local hideTween = TweenService:Create(MinimizedFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-        Size = UDim2.new(0, 0, 0, 0)
-    })
-    hideTween:Play()
-    
-    hideTween.Completed:Connect(function()
-        MinimizedFrame.Visible = false
-        MainFrame.Visible = true
-        MainShadow.Visible = true
-        
-        MainFrame.Size = UDim2.new(0, 0, 0, 0)
-        MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-        MainShadow.Size = UDim2.new(0, 0, 0, 0)
-        MainShadow.BackgroundTransparency = 1
-        
-        local restoreTween = TweenService:Create(MainFrame, TweenInfo.new(0.6, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, sizes.mainWidth, 0, sizes.mainHeight),
-            Position = UDim2.new(0, 50, 0, 50)
-        })
-        
-        local shadowRestoreTween = TweenService:Create(MainShadow, TweenInfo.new(0.6, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, sizes.mainWidth, 0, sizes.mainHeight),
-            BackgroundTransparency = 0.6
-        })
-        
-        restoreTween:Play()
-        shadowRestoreTween:Play()
-    end)
-end
+local mainTabContent = createMainTabContent()
+local aimbotTabContent = createAimbotTabContent()
 
 -- Tab Switching Function
 local function switchTab(tabName)
     currentTab = tabName
     
-    -- Update tab appearances
     if tabName == "Main" then
-        MainTab.BackgroundColor3 = Colors.ActiveOrange
-        AimbotTab.BackgroundColor3 = Colors.DisabledGray
+        MainTab.BackgroundColor3 = Colors.Primary
+        MainTab.TextColor3 = Colors.Background
+        AimbotTab.BackgroundColor3 = Colors.Secondary
+        AimbotTab.TextColor3 = Colors.TextPrimary
         
-        -- Show main content, hide aimbot content
-        for _, child in pairs(ContentFrame:GetChildren()) do
-            if child:IsA("Frame") and child.LayoutOrder > 0 then
-                if child.LayoutOrder <= 3 then
-                    child.Visible = true
-                else
-                    child.Visible = false
-                end
-            end
-        end
+        mainTabContent.Visible = true
+        aimbotTabContent.Visible = false
     else
-        MainTab.BackgroundColor3 = Colors.DisabledGray
-        AimbotTab.BackgroundColor3 = Colors.ActiveOrange
+        MainTab.BackgroundColor3 = Colors.Secondary
+        MainTab.TextColor3 = Colors.TextPrimary
+        AimbotTab.BackgroundColor3 = Colors.Primary
+        AimbotTab.TextColor3 = Colors.Background
         
-        -- Hide main content, show aimbot content
-        for _, child in pairs(ContentFrame:GetChildren()) do
-            if child:IsA("Frame") and child.LayoutOrder > 0 then
-                if child.LayoutOrder <= 3 then
-                    child.Visible = false
-                else
-                    child.Visible = true
-                end
-            end
-        end
+        mainTabContent.Visible = false
+        aimbotTabContent.Visible = true
     end
-end
-
--- Helper Functions
-local function updateStatus(text, color)
-    StatusLabel.Text = text
-    StatusLabel.TextColor3 = color or Colors.SuccessGreen
-    
-    local statusTween = TweenService:Create(StatusLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-        TextSize = sizes.fontSize + 2
-    })
-    statusTween:Play()
-    
-    statusTween.Completed:Connect(function()
-        local backTween = TweenService:Create(StatusLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            TextSize = sizes.fontSize
-        })
-        backTween:Play()
-    end)
-end
-
-local function toggleButton(button, isEnabled, onText, offText)
-    if isEnabled then
-        button.Text = onText
-        button.BackgroundColor3 = Colors.SuccessGreen
-    else
-        button.Text = offText
-        button.BackgroundColor3 = Colors.DangerRed
-    end
-    
-    local toggleTween = TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-        Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset, button.Size.Y.Scale, button.Size.Y.Offset + 3)
-    })
-    toggleTween:Play()
-    
-    toggleTween.Completed:Connect(function()
-        local backTween = TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-            Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset, button.Size.Y.Scale, button.Size.Y.Offset - 3)
-        })
-        backTween:Play()
-    end)
 end
 
 -- Game Functions (ESP System)
@@ -1057,27 +688,27 @@ local function createESP(player)
     
     -- ESP Box
     local espBox = Instance.new("BoxHandleAdornment")
-    espBox.Name = "TacticalESPBox"
+    espBox.Name = "ComboESPBox"
     espBox.Parent = humanoidRootPart
     espBox.Size = Vector3.new(4, 6, 1)
-    espBox.Color3 = Colors.DangerRed
+    espBox.Color3 = Colors.Primary
     espBox.Transparency = 0.3
     espBox.AlwaysOnTop = true
     espBox.ZIndex = 10
     
     -- Highlight
     local highlight = Instance.new("Highlight")
-    highlight.Name = "TacticalESPHighlight"
+    highlight.Name = "ComboESPHighlight"
     highlight.Parent = character
-    highlight.FillColor = Colors.DangerRed
-    highlight.OutlineColor = Colors.ActiveOrange
+    highlight.FillColor = Colors.Primary
+    highlight.OutlineColor = Colors.TextPrimary
     highlight.FillTransparency = 0.7
     highlight.OutlineTransparency = 0.2
     highlight.Adornee = character
     
     -- ESP GUI
     local espGui = Instance.new("BillboardGui")
-    espGui.Name = "TacticalESPGui"
+    espGui.Name = "ComboESPGui"
     espGui.Parent = head or humanoidRootPart
     espGui.Size = UDim2.new(0, 200, 0, 80)
     espGui.StudsOffset = Vector3.new(0, 3, 0)
@@ -1089,11 +720,11 @@ local function createESP(player)
     nameText.BackgroundTransparency = 1
     nameText.Size = UDim2.new(1, 0, 0.5, 0)
     nameText.Font = Enum.Font.GothamBold
-    nameText.TextColor3 = Colors.TextWhite
+    nameText.TextColor3 = Colors.TextPrimary
     nameText.TextSize = 16
     nameText.TextStrokeTransparency = 0
-    nameText.TextStrokeColor3 = Colors.TextDark
-    nameText.Text = "💀 " .. player.Name
+    nameText.TextStrokeColor3 = Colors.Background
+    nameText.Text = player.Name
     
     -- Distance Text
     local distanceText = Instance.new("TextLabel")
@@ -1102,10 +733,10 @@ local function createESP(player)
     distanceText.Position = UDim2.new(0, 0, 0.5, 0)
     distanceText.Size = UDim2.new(1, 0, 0.5, 0)
     distanceText.Font = Enum.Font.Gotham
-    distanceText.TextColor3 = Colors.ActiveOrange
+    distanceText.TextColor3 = Colors.Primary
     distanceText.TextSize = 14
     distanceText.TextStrokeTransparency = 0
-    distanceText.TextStrokeColor3 = Colors.TextDark
+    distanceText.TextStrokeColor3 = Colors.Background
     
     espObjects[player] = {
         box = espBox,
@@ -1118,17 +749,17 @@ local function createESP(player)
     local function updateESP()
         if espObjects[player] and player.Character and humanoidRootPart.Parent then
             local distance = getPlayerDistance(player)
-            distanceText.Text = "📡 " .. math.floor(distance) .. "m"
+            distanceText.Text = math.floor(distance) .. "m"
             
             if distance < 50 then
-                espBox.Color3 = Colors.DangerRed
-                highlight.FillColor = Colors.DangerRed
+                espBox.Color3 = Colors.Error
+                highlight.FillColor = Colors.Error
             elseif distance < 150 then
-                espBox.Color3 = Colors.WarningYellow
-                highlight.FillColor = Colors.WarningYellow
+                espBox.Color3 = Colors.Warning
+                highlight.FillColor = Colors.Warning
             else
-                espBox.Color3 = Colors.InfoBlue
-                highlight.FillColor = Colors.InfoBlue
+                espBox.Color3 = Colors.Primary
+                highlight.FillColor = Colors.Primary
             end
         end
     end
@@ -1257,177 +888,14 @@ local function stopAimbot()
     currentTarget = nil
 end
 
--- Button Setup Function
-local function setupButton(button, callback)
-    if isMobile then
-        button.TouchTap:Connect(callback)
-    else
-        button.MouseButton1Click:Connect(callback)
-    end
-end
-
 -- Event Connections
-setupButton(MinimizeButton, smoothMinimize)
-setupButton(RestoreButton, smoothRestore)
-
-setupButton(CloseButton, function()
-    local closeTween = TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-        Size = UDim2.new(0, 0, 0, 0),
-        Position = UDim2.new(0.5, 0, 0.5, 0)
-    })
-    closeTween:Play()
-    
-    closeTween.Completed:Connect(function()
-        clearAllESP()
-        stopAimbot()
-        ScreenGui:Destroy()
-    end)
-end)
-
--- Tab Events
-setupButton(MainTab, function()
-    switchTab("Main")
-end)
-
-setupButton(AimbotTab, function()
-    switchTab("Aimbot")
-end)
-
--- Main Tab Button Events
-setupButton(mainTabButtons.espButton, function()
-    espEnabled = not espEnabled
-    toggleButton(mainTabButtons.espButton, espEnabled, "🔰 Enable ESP: ON", "🔰 Enable ESP: OFF")
-    
-    if espEnabled then
-        updateStatus("👁️ ESP Operations Active", Colors.SuccessGreen)
-        if espUpdateConnection then
-            espUpdateConnection:Disconnect()
-        end
-        espUpdateConnection = RunService.Heartbeat:Connect(updateESP)
-        updateESP()
-    else
-        updateStatus("👁️ ESP Operations Disabled", Colors.WarningYellow)
-        if espUpdateConnection then
-            espUpdateConnection:Disconnect()
-            espUpdateConnection = nil
-        end
-        clearAllESP()
-    end
-end)
-
-setupButton(mainTabButtons.hitboxButton, function()
-    hitboxEnabled = not hitboxEnabled
-    toggleButton(mainTabButtons.hitboxButton, hitboxEnabled, "💀 Enemy Hitbox: ON", "💀 Enemy Hitbox: OFF")
-    
-    if hitboxEnabled then
-        updateStatus("💀 Enemy Hitbox Expanded", Colors.SuccessGreen)
-    else
-        updateStatus("💀 Enemy Hitbox Normal", Colors.WarningYellow)
-    end
-end)
-
-setupButton(mainTabButtons.specialOpsButton, function()
-    specialOpsEnabled = not specialOpsEnabled
-    toggleButton(mainTabButtons.specialOpsButton, specialOpsEnabled, "🔰 Unlock Special Ops: ON", "🔰 Unlock Special Ops: OFF")
-    
-    if specialOpsEnabled then
-        updateStatus("🔰 Special Operations Unlocked", Colors.SuccessGreen)
-    else
-        updateStatus("🔰 Special Operations Locked", Colors.WarningYellow)
-    end
-end)
-
-setupButton(mainTabButtons.noRecoilButton, function()
-    noRecoilEnabled = not noRecoilEnabled
-    toggleButton(mainTabButtons.noRecoilButton, noRecoilEnabled, "🎯 No Recoil: ON", "🎯 No Recoil: OFF")
-    
-    if noRecoilEnabled then
-        updateStatus("🎯 Weapon Stabilized", Colors.SuccessGreen)
-    else
-        updateStatus("🎯 Weapon Recoil Normal", Colors.WarningYellow)
-    end
-end)
-
-setupButton(mainTabButtons.rapidFireButton, function()
-    rapidFireEnabled = not rapidFireEnabled
-    toggleButton(mainTabButtons.rapidFireButton, rapidFireEnabled, "⚡ Rapid Fire: ON", "⚡ Rapid Fire: OFF")
-    
-    if rapidFireEnabled then
-        updateStatus("⚡ Rapid Fire Engaged", Colors.SuccessGreen)
-    else
-        updateStatus("⚡ Fire Rate Normal", Colors.WarningYellow)
-    end
-end)
-
-setupButton(mainTabButtons.fastReloadButton, function()
-    fastReloadEnabled = not fastReloadEnabled
-    toggleButton(mainTabButtons.fastReloadButton, fastReloadEnabled, "🔄 Fast Reload: ON", "🔄 Fast Reload: OFF")
-    
-    if fastReloadEnabled then
-        updateStatus("🔄 Fast Reload Active", Colors.SuccessGreen)
-    else
-        updateStatus("🔄 Reload Speed Normal", Colors.WarningYellow)
-    end
-end)
-
-setupButton(mainTabButtons.infiniteAmmoButton, function()
-    infiniteAmmoEnabled = not infiniteAmmoEnabled
-    toggleButton(mainTabButtons.infiniteAmmoButton, infiniteAmmoEnabled, "♾️ Infinite Ammo: ON", "♾️ Infinite Ammo: OFF")
-    
-    if infiniteAmmoEnabled then
-        updateStatus("♾️ Unlimited Ammunition", Colors.SuccessGreen)
-    else
-        updateStatus("♾️ Ammo Limited", Colors.WarningYellow)
-    end
-end)
-
--- Aimbot Tab Button Events
-setupButton(aimbotTabButtons.aimbotButton, function()
-    aimbotEnabled = not aimbotEnabled
-    toggleButton(aimbotTabButtons.aimbotButton, aimbotEnabled, "🎯 Enable Aimbot: ON", "🎯 Enable Aimbot: OFF")
-    
-    if aimbotEnabled then
-        updateStatus("🎯 Targeting System Online", Colors.SuccessGreen)
-        startAimbot()
-    else
-        updateStatus("🎯 Targeting System Offline", Colors.WarningYellow)
-        stopAimbot()
-    end
-end)
-
-setupButton(aimbotTabButtons.autoLockButton, function()
-    autoLockEnabled = not autoLockEnabled
-    toggleButton(aimbotTabButtons.autoLockButton, autoLockEnabled, "🔒 Auto-Lock: ON", "🔒 Auto-Lock: OFF")
-    
-    if autoLockEnabled then
-        updateStatus("🔒 Auto-Lock Engaged", Colors.SuccessGreen)
-    else
-        updateStatus("🔒 Auto-Lock Disabled", Colors.WarningYellow)
-    end
-end)
-
-setupButton(aimbotTabButtons.trickshotButton, function()
-    trickshotEnabled = not trickshotEnabled
-    toggleButton(aimbotTabButtons.trickshotButton, trickshotEnabled, "🌟 Trickshot Mode: ON", "🌟 Trickshot Mode: OFF")
-    
-    if trickshotEnabled then
-        updateStatus("🌟 Trickshot Mode Active", Colors.SuccessGreen)
-    else
-        updateStatus("🌟 Trickshot Mode Disabled", Colors.WarningYellow)
-    end
-end)
-
--- FOV Slider Update
-spawn(function()
-    while true do
-        wait(0.1)
-        local newFOV = aimbotTabButtons.getFOVValue()
-        if newFOV ~= fovRadius then
-            fovRadius = newFOV
-            updateStatus("📡 FOV Radius: " .. fovRadius .. " studs", Colors.InfoBlue)
-        end
-    end
-end)
+if isMobile then
+    MainTab.TouchTap:Connect(function() switchTab("Main") end)
+    AimbotTab.TouchTap:Connect(function() switchTab("Aimbot+") end)
+else
+    MainTab.MouseButton1Click:Connect(function() switchTab("Main") end)
+    AimbotTab.MouseButton1Click:Connect(function() switchTab("Aimbot+") end)
+end
 
 -- Player Events
 Players.PlayerAdded:Connect(function(player)
@@ -1455,11 +923,8 @@ workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(functio
     screenInfo = getScreenInfo()
     sizes = getResponsiveSizes()
     
-    -- Update main frame size
-    if not isMinimized then
-        MainFrame.Size = UDim2.new(0, sizes.mainWidth, 0, sizes.mainHeight)
-        MainShadow.Size = UDim2.new(0, sizes.mainWidth, 0, sizes.mainHeight)
-    end
+    MainFrame.Size = UDim2.new(0, sizes.mainWidth, 0, sizes.mainHeight)
+    MainFrame.Position = UDim2.new(0.5, -sizes.mainWidth/2, 0.5, -sizes.mainHeight/2)
 end)
 
 -- Cleanup
@@ -1472,54 +937,48 @@ ScreenGui.AncestryChanged:Connect(function()
     end
 end)
 
--- Initialize
-spawn(function()
-    wait(2)
-    updateStatus("⚔️ Tactical Systems Initialized", Colors.SuccessGreen)
-    wait(3)
-    updateStatus("💀 Ready for Combat Operations", Colors.SuccessGreen)
-end)
+-- Initialize ESP update connection
+if espUpdateConnection then
+    espUpdateConnection:Disconnect()
+end
+espUpdateConnection = RunService.Heartbeat:Connect(updateESP)
 
-print("⚔️ DESSERT WAR MILITARY GUI v4.0 LOADED!")
+print("🎯 COMBOCHRONICLE VAULT | DESERT WAR v5.0 LOADED!")
 print("=" .. string.rep("=", 60))
-print("🎖️ MILITARY FEATURES:")
-print("   🔰 Professional Military Design")
-print("   📱 Responsive Layout System")
-print("   🎯 Advanced Tab System")
-print("   📜 Scrollable Content")
-print("   🎨 Military Desert Theme")
-print("   ⚡ Smooth Animations")
+print("✨ MODERN FEATURES:")
+print("   🎨 Clean Modern Design")
+print("   🔘 Toggle Switches")
+print("   📱 Responsive Layout")
+print("   🎯 Tab System")
+print("   🎚️ Slider Controls")
+print("   📱 Mobile Support")
 print("")
-print("🔰 MAIN TAB FEATURES:")
-print("   👁️ ESP Operations")
-print("   💀 Enemy Hitbox Expansion")
-print("   🔰 Special Operations Unlock")
-print("   🔫 Weapon Modifications:")
-print("      🎯 No Recoil")
-print("      ⚡ Rapid Fire")
-print("      🔄 Fast Reload")
-print("      ♾️ Infinite Ammo")
+print("🔰 MAIN TAB:")
+print("   👁️ Enable ESP")
+print("   💀 Enable Enemy Hitbox")
+print("   🔰 Special Operations Unlocked")
+print("   🔫 Gun Mods")
 print("")
-print("🎯 AIMBOT TAB FEATURES:")
-print("   🎯 Advanced Targeting System")
-print("   🔒 Auto-Lock Technology")
-print("   🌟 Trickshot Mode")
-print("   📡 Adjustable FOV Radius (250-2000 studs)")
+print("🎯 AIMBOT+ TAB:")
+print("   🎯 Enable Aimbot")
+print("   🔒 Enable Auto-Lock")
+print("   🌟 Enable Trickshot Mode")
+print("   📡 FOV Radius Slider (250-2000 studs)")
 print("")
 print("🎮 CONTROLS:")
 if isMobile then
-    print("   📱 Touch all buttons and sliders")
+    print("   📱 Touch all toggles and sliders")
     print("   🤏 Drag GUI to move")
     print("   👆 Tap tabs to switch")
 else
-    print("   🖱️ Click all buttons and sliders")
+    print("   🖱️ Click all toggles and sliders")
     print("   🖱️ Drag GUI to move")
     print("   🖱️ Click tabs to switch")
 end
 print("")
-print("🎨 THEME: Military Desert Camouflage")
+print("🎨 THEME: Modern Teal/Cyan")
 print("📏 SCREEN: " .. screenInfo.width .. "x" .. screenInfo.height)
 print("🔧 GUI SIZE: " .. sizes.mainWidth .. "x" .. sizes.mainHeight)
 print("")
-print("🚀 READY FOR TACTICAL OPERATIONS!")
+print("🚀 READY FOR MODERN COMBAT!")
 print("=" .. string.rep("=", 60))
